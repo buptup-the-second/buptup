@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculator</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        .calculator {
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+            padding: 20px;
+        }
+        .display {
+            font-size: 2em;
+            margin-bottom: 20px;
+            text-align: right;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        .buttons button {
+            padding: 20px;
+            font-size: 1.5em;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #e0e0e0;
+        }
+        .buttons button:hover {
+            background-color: #d0d0d0;
+        }
+        .buttons button.operator {
+            background-color: #f9a825;
+            color: #fff;
+        }
+        .buttons button.operator:hover {
+            background-color: #f57f17;
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator">
+        <div class="display" id="display">0</div>
+        <div class="buttons">
+            <button onclick="clearDisplay()">C</button>
+            <button onclick="appendToDisplay('/')">/</button>
+            <button onclick="appendToDisplay('*')">*</button>
+            <button onclick="appendToDisplay('-')">-</button>
+            <button onclick="appendToDisplay('7')">7</button>
+            <button onclick="appendToDisplay('8')">8</button>
+            <button onclick="appendToDisplay('9')">9</button>
+            <button onclick="appendToDisplay('+')">+</button>
+            <button onclick="appendToDisplay('4')">4</button>
+            <button onclick="appendToDisplay('5')">5</button>
+            <button onclick="appendToDisplay('6')">6</button>
+            <button onclick="calculateResult()">=</button>
+            <button onclick="appendToDisplay('1')">1</button>
+            <button onclick="appendToDisplay('2')">2</button>
+            <button onclick="appendToDisplay('3')">3</button>
+            <button onclick="appendToDisplay('0')">0</button>
+        </div>
+    </div>
+    <script>
+        const display = document.getElementById('display');
+
+        function clearDisplay() {
+            display.innerText = '0';
+        }
+
+        function appendToDisplay(value) {
+            if (display.innerText === '0') {
+                display.innerText = value;
+            } else {
+                display.innerText += value;
+            }
+        }
+
+        function calculateResult() {
+            try {
+                display.innerText = eval(display.innerText);
+            } catch {
+                display.innerText = 'Error';
+            }
+        }
+    </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Cursor Example</title>
+    <style>
+        /* Hide the default cursor */
+        * {
+            cursor: none !important;
+            user-select: none; /* Disable text selection */
+        }
+        
+        /* Disable dragging and selecting images */
+        img {
+            -webkit-user-drag: none; 
+            user-drag: none;
+            pointer-events: none; /* Prevent interaction with the image */
+        }
+    </style>
+</head>
+<body>
+    <script>
+        // Create a new div for the custom cursor
+        const customCursor = document.createElement('div');
+        customCursor.style.position = 'fixed';
+        customCursor.style.top = '0';
+        customCursor.style.left = '0';
+        customCursor.style.pointerEvents = 'none'; // Ensure the cursor doesn't interfere with mouse events
+        customCursor.innerHTML = '<img src="hand.png" style="width: 30px; height: 30px;"/>';
+
+        // Append the custom cursor to the body
+        document.body.appendChild(customCursor);
+
+        // Update the custom cursor position based on mouse movement
+        document.addEventListener('mousemove', (e) => {
+            customCursor.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+        });
+    </script>
+</body>
+</html>

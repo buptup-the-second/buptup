@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>bupsite</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            width: 80%;
+            margin: 0 auto;
+        }
+        #search-bar {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 1em;
+        }
+        .suggestions {
+            border: 1px solid #ccc;
+            max-height: 150px;
+            overflow-y: auto;
+            position: absolute;
+            background-color: white;
+            width: calc(100% - 22px);
+        }
+        .suggestions div {
+            padding: 10px;
+            cursor: pointer;
+        }
+        .suggestions div:hover {
+            background-color: #eee;
+        }
+        #board {
+            display: grid;
+            grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+            gap: 10px;
+            width: 200px;
+            height: 200px;
+            margin: 20px auto;
+        }
+        .cell {
+            background: #ddd;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-size: 2em;
+            transition: background 0.3s;
+        }
+        .cell:hover {
+            background: #ccc;
+        }
+        #youtube-logo {
+            position: absolute;
+            top: 60px;
+            right: 60px;
+            width: 80px;
+            height: 80px;
+            background: url('https://upload.wikimedia.org/wikipedia/commons/b/b8/YouTube_Logo_2017.svg') no-repeat center;
+            background-size: contain;
+        }
+        button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            font-size: 1em;
+            border: none;
+            background: #333;
+            color: white;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #444;
+        }
+        #dog-image {
+            cursor: pointer;
+            width: 200px;
+            height: auto;
+            display: block;
+            margin: 50px auto;
+        }
+        #survive-button {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            padding: 10px 20px;
+            font-size: 1em;
+            border: none;
+            background: #333;
+            color: white;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        #survive-button:hover {
+            background: #444;
+        }
+        #click-counter {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: #333;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+
+        /* Custom Cursor */
+        * {
+            cursor: none !important;
+            user-select: none;
+        }
+
+        .custom-cursor {
+            position: fixed;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <form id="searchForm">
+                <input type="text" id="search-bar" placeholder="Search for a page..." autocomplete="off">
+                <div class="suggestions" id="suggestions"></div>
+            </form>
+            <h1>Welcome</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <h2>Tic Tac Toe Game</h2>
+        <div id="board"></div>
+        <button onclick="resetBoard()">Reset</button>
+        <a id="youtube-logo" href="https://www.youtube.com/channel/UCP3zHPDt2RMRf_6cBWKD5MQ" target="_blank"></a>
+        <img id="dog-image" src="dog.png" alt="Dog">
+    </div>
+
+    <button id="survive-button">Survive?</button>
+    <div id="click-counter">Clicks: 0</div>
+
+    <script>
+        // --- Fixed typo: missing comma ---
+        const pages = ['zombie', 'escape', 'calculator', 'store'];
+
+        // --- Search Bar Suggestions ---
+        document.getElementById('search-bar').addEventListener('input', function() {
+            const input = this.value.toLowerCase();
+            const suggestions = document.getElementById('suggestions');
+            suggestions.innerHTML = '';
+            if (input) {
+                const filteredPages = pages.filter(page => page.includes(input));
+                filteredPages.forEach(page => {
+                    const suggestionDiv = document.createElement('div');
+                    suggestionDiv.textContent = page;
+                    suggestionDiv.addEventListener('click', function() {
+                        document.getElementById('search-bar').value = page;
+                        suggestions.innerHTML = '';
+                        navigateToPage(page);
+                    });
+                    suggestions.appendChild(suggestionDiv);
+                });
+            }
+        });
+
+        function navigateToPage(query) {
+            switch (query) {
+                case 'zombie':
+                    window.location.href = 'zombie.html';
+                    break;
+                case 'escape':
+                    window.location.href = 'escape.html';
+                    break;
+                case 'calculator':
+                    window.location.href = 'calculator.html';
+                    break;
+                case 'store':
+                    window.location.href = 'store.html';
+                    break;
+                default:
+                    alert('Page not found!');
+            }
+        }
+
+        document.getElementById('searchForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const query = document.getElementById('search-bar').value.toLowerCase();
+            navigateToPage(query);
+        });
+
+        // --- Tic Tac Toe ---
+        const board = Array(9).fill(null);
+        let turn = 'X';
+
+        function resetBoard() {
+            for (let i = 0; i < board.length; i++) {
+                board[i] = null;
+            }
+            turn = 'X';
+            drawBoard();
+        }
+
+        function drawBoard() {
+            const boardDiv = document.getElementById('board');
+            boardDiv.innerHTML = '';
+            for (let i = 0; i < board.length; i++) {
+                const cellDiv = document.createElement('div');
+                cellDiv.innerHTML = board[i] ? board[i] : '';
+                cellDiv.className = 'cell';
+                cellDiv.addEventListener('click', () => makeMove(i));
+                boardDiv.appendChild(cellDiv);
+            }
+        }
+
+        function makeMove(i) {
+            if (!board[i]) {
+                board[i] = turn;
+                turn = turn === 'X' ? 'O' : 'X';
+                drawBoard();
+            }
+        }
+
+        drawBoard();
+
+        // --- Dog click counter ---
+        let clickCount = 0;
+        document.getElementById('dog-image').addEventListener('click', function() {
+            const barkSound = new Audio('bark.wav');
+            barkSound.play();
+            clickCount++;
+            document.getElementById('click-counter').textContent = `Clicks: ${clickCount}`;
+        });
+
+        // --- Survive button ---
+        document.getElementById('survive-button').addEventListener('click', function() {
+            window.location.href = 'zombie.html';
+        });
+
+        // --- Custom Cursor ---
+        const customCursor = document.createElement('div');
+        customCursor.classList.add('custom-cursor');
+        customCursor.innerHTML = '<img src="hand.png" style="width: 30px; height: 30px;">';
+        document.body.appendChild(customCursor);
+
+        document.addEventListener('mousemove', (e) => {
+            customCursor.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+        });
+    </script>
+</body>
+</html>

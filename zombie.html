@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zombie Shooter</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+        }
+        #restartButton {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 10px 20px;
+            font-size: 20px;
+            background-color: #ff0000;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <button id="restartButton">Restart</button>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const restartButton = document.getElementById('restartButton');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const player = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            size: 20,
+            speed: 5,
+            dx: 0,
+            dy: 0
+        };
+
+        let score = 0;
+        const zombies = [];
+        const bullets = [];
+        const bulletSpeed = 7;
+        const zombieSpeed = 2;
+        const spawnInterval = 2000;
+        let lastSpawnTime = 0;
+        let gameRunning = true;
+        let gamePaused = false;
+        let shootCooldown = false;
+        let mouseX = 0;
+        let mouseY = 0;
+
+        function update() {
+            if (gameRunning && !gamePaused) {
+                handleGamepadInput();
+                movePlayer();
+                updateBullets();
+                updateZombies();
+                detectCollisions();
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawPlayer();
+                drawBullets();
+                drawZombies();
+                drawScore();
+
+                requestAnimationFrame(update);
+            }
+        }
+
+        function movePlayer() {
+            player.x += player.dx;
+            player.y += player.dy;
+
+            if (player.x < 0) player.x = 0;
+            if (player.y < 0) player.y = 0;
+            if (player.x > canvas.width) player.x = canvas.width;
+            if (player.y > canvas.height) player.y = canvas.height;
+        }
+
+        function drawPlayer() {
+            ctx.fillStyle = 'blue';
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+            ctx.fill();
+            drawGun();
+        }
+
+        function drawGun() {
+            const gunLength = 30;
+            const angle = Math.atan2(mouseY - player.y, mouseX - player.x);
+            const gunX = player.x + Math.cos(angle) * player.size;
+            const gunY = player.y + Math.sin(angle) * player.size;
+            const gunEndX = gunX + Math.cos(angle) * gunLength;
+            const gunEndY = gunY + Math.sin(angle) * gunLength;
+
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.moveTo(gunX, gunY);
+            ctx.lineTo(gunEndX, gunEndY);
+            ctx.stroke();
+        }
+
+        function updateBullets() {
+            bullets.forEach((bullet, index) => {
+                bullet.x += bullet.dx;
+                bullet.y += bullet.dy;
+
+                if (bullet.x < 0 || bullet.y < 0 || bullet.x > canvas.width || bullet.y > canvas.height) {
+                    bullets.splice(index, 1);
+                }
+            });
+        }
+
+        function drawBullets() {
+            ctx.fillStyle = 'red';
+            bullets.forEach(bullet => {
+                ctx.beginPath();
+                ctx.arc(bullet.x, bullet.y, 5, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function updateZombies() {
+            zombies.forEach((zombie, index) => {
+                const angle = Math.atan2(player.y - zombie.y, player.x - zombie.x);
+                zombie.x += Math.cos(angle) * zombieSpeed;
+                zombie.y += Math.sin(angle) * zombieSpeed;
+
+                const dist = Math.hypot(player.x - zombie.x, player.y - zombie.y);
+                if (dist < zombie.size + player.size) {
+                    endGame();
+                }
+            });
+
+            const currentTime = Date.now();
+            if (currentTime - lastSpawnTime > spawnInterval) {
+                spawnZombie();
+                lastSpawnTime = currentTime;
+            }
+        }
+
+        function drawZombies() {
+            ctx.fillStyle = 'green';
+            zombies.forEach(zombie => {
+                ctx.beginPath();
+                ctx.arc(zombie.x, zombie.y, zombie.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function spawnZombie() {
+            const edge = Math.floor(Math.random() * 4);
+            let x, y, size, hits;
+
+            const isBigZombie = Math.random() < 0.2;
+            if (isBigZombie) {
+                size = 30;
+                hits = 10;
+            } else {
+                size = 15;
+                hits = 1;
+            }
+
+            switch (edge) {
+                case 0:
+                    x = Math.random() * canvas.width;
+                    y = -15;
+                    break;
+                case 1:
+                    x = canvas.width + 15;
+                    y = Math.random() * canvas.height;
+                    break;
+                case 2:
+                    x = Math.random() * canvas.width;
+                    y = canvas.height + 15;
+                    break;
+                case 3:
+                    x = -15;
+                    y = Math.random() * canvas.height;
+                    break;
+            }
+
+            zombies.push({ x, y, size, hits });
+        }
+
+        function shootBullet() {
+            if (!shootCooldown) {
+                const angle = Math.atan2(mouseY - player.y, mouseX - player.x);
+                const dx = Math.cos(angle) * bulletSpeed;
+                const dy = Math.sin(angle) * bulletSpeed;
+
+                bullets.push({ x: player.x, y: player.y, dx, dy });
+
+                shootCooldown = true;
+                setTimeout(() => shootCooldown = false, 200); // 200ms cooldown
+            }
+        }
+
+        function detectCollisions() {
+            bullets.forEach((bullet, bulletIndex) => {
+                zombies.forEach((zombie, zombieIndex) => {
+                    const dist = Math.hypot(bullet.x - zombie.x, bullet.y - zombie.y);
+                    if (dist < zombie.size) {
+                        zombie.hits--;
+
+                        if (zombie.hits <= 0) {
+                            zombies.splice(zombieIndex, 1);
+                            score++;
+                        }
+
+                        bullets.splice(bulletIndex, 1);
+                    }
+                });
+            });
+        }
+
+        function drawScore() {
+            ctx.fillStyle = 'black';
+            ctx.font = '24px Arial';
+            ctx.fillText(`Score: ${score}`, 10, 30);
+        }
+
+        function endGame() {
+            gameRunning = false;
+            restartButton.style.display = 'block';
+        }
+
+        function restartGame() {
+            gameRunning = true;
+            player.x = canvas.width / 2;
+            player.y = canvas.height / 2;
+            zombies.length = 0;
+            bullets.length = 0;
+            score = 0;
+            restartButton.style.display = 'none';
+            update();
+        }
+
+        function keyDown(e) {
+            if (e.key === 'w' || e.key === 'ArrowUp') {
+                player.dy = -player.speed;
+            } else if (e.key === 's' || e.key === 'ArrowDown') {
+                player.dy = player.speed;
+            } else if (e.key === 'a' || e.key === 'ArrowLeft') {
+                player.dx = -player.speed;
+            } else if (e.key === 'd' || e.key === 'ArrowRight') {
+                player.dx = player.speed;
+            } else if (e.key === 'p') {
+                togglePause();
+            }
+        }
+
+        function keyUp(e) {
+            if (e.key === 'w' || e.key === 'ArrowUp' || e.key === 's' || e.key === 'ArrowDown') {
+                player.dy = 0;
+            } else if (e.key === 'a' || e.key === 'ArrowLeft' || e.key === 'd' || e.key === 'ArrowRight') {
+                player.dx = 0;
+            }
+        }
+
+        function togglePause() {
+            gamePaused = !gamePaused;
+            if (!gamePaused) {
+                update();
+            }
+        }
+
+        function mouseMove(e) {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        }
+
+        function handleGamepadInput() {
+            const gamepad = navigator.getGamepads()[0];
+            if (!gamepad) return;
+
+            player.dx = gamepad.axes[0] * player.speed;
+            player.dy = gamepad.axes[1] * player.speed;
+
+            if (Math.abs(gamepad.axes[2]) > 0.1 || Math.abs(gamepad.axes[3]) > 0.1) {
+                const angle = Math.atan2(gamepad.axes[3], gamepad.axes[2]);
+                mouseX = player.x + Math.cos(angle) * 100;
+                mouseY = player.y + Math.sin(angle) * 100;
+            }
+
+            if (gamepad.buttons[7].pressed && !shootCooldown) { // Right trigger
+                shootBullet();
+            }
+
+            if (gamepad.buttons[9].pressed) { // Start button
+                togglePause();
+            }
+        }
+
+        document.addEventListener('keydown', keyDown);
+        document.addEventListener('keyup', keyUp);
+        document.addEventListener('mousemove', mouseMove);
+        window.addEventListener('gamepadconnected', () => {
+            console.log('Gamepad connected');
+            update();
+        });
+        window.addEventListener('gamepaddisconnected', () => {
+            console.log('Gamepad disconnected');
+        });
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+        canvas.addEventListener('mousedown', e => {
+            if (e.button === 0) {
+                shootBullet();
+            }
+        });
+        restartButton.addEventListener('click', restartGame);
+
+        update();
+    </script>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Cursor Example</title>
+    <style>
+        /* Hide the default cursor */
+        * {
+            cursor: none !important;
+            user-select: none; /* Disable text selection */
+        }
+        
+        /* Disable dragging and selecting images */
+        img {
+            -webkit-user-drag: none; 
+            user-drag: none;
+            pointer-events: none; /* Prevent interaction with the image */
+        }
+    </style>
+</head>
+<body>
+    <script>
+        // Create a new div for the custom cursor
+        const customCursor = document.createElement('div');
+        customCursor.style.position = 'fixed';
+        customCursor.style.top = '0';
+        customCursor.style.left = '0';
+        customCursor.style.pointerEvents = 'none'; // Ensure the cursor doesn't interfere with mouse events
+        customCursor.innerHTML = '<img src="hand.png" style="width: 30px; height: 30px;"/>';
+
+        // Append the custom cursor to the body
+        document.body.appendChild(customCursor);
+
+        // Update the custom cursor position based on mouse movement
+        document.addEventListener('mousemove', (e) => {
+            customCursor.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+        });
+    </script>
+</body>
+</html>

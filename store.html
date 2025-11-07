@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Full-Screen Overlay Image with Sound</title>
+  <style>
+    /* Prevent any scrolling on the page */
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* Container to hold full-screen images */
+    .image-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* Full-screen images with non-grabbable styling */
+    #image1, #image2 {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      cursor: default;               /* Default cursor */
+      user-select: none;              /* Disable text selection */
+      -webkit-user-drag: none;        /* Prevent dragging on Webkit browsers */
+      -moz-user-select: none;         /* Prevent selection on Firefox */
+      -ms-user-select: none;          /* Prevent selection on Internet Explorer/Edge */
+    }
+
+    /* Pointer cursor on the overlay image */
+    #image2 {
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="image-container">
+    <!-- Full-screen background image -->
+    <img id="image1" src="image1.jpg" alt="Image 1">
+    
+    <!-- Full-screen overlay image -->
+    <img id="image2" src="image2.png" alt="Image 2">
+  </div>
+
+  <!-- Audio file -->
+  <audio id="buySound" src="buy.mp3"></audio>
+
+  <script>
+    document.getElementById("image2").onclick = function() {
+      // Hide the overlay image
+      this.style.display = "none";
+      
+      // Play the audio
+      document.getElementById("buySound").play();
+    };
+  </script>
+</body>
+</html>
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Cursor Example</title>
+    <style>
+        /* Hide the default cursor */
+        * {
+            cursor: none !important;
+            user-select: none; /* Disable text selection */
+        }
+    </style>
+</head>
+<body>
+    <script>
+        // Create a new div for the custom cursor
+        const customCursor = document.createElement('div');
+        customCursor.style.position = 'fixed';
+        customCursor.style.top = '0';
+        customCursor.style.left = '0';
+        customCursor.style.pointerEvents = 'none'; // Ensure the cursor doesn't interfere with mouse events
+        customCursor.innerHTML = '<img src="hand.png" style="width: 30px; height: 30px;"/>';
+
+        // Append the custom cursor to the body
+        document.body.appendChild(customCursor);
+
+        // Update the custom cursor position based on mouse movement
+        document.addEventListener('mousemove', (e) => {
+            customCursor.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+        });
+    </script>
+</body>
+</html>

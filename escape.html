@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>escape</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <audio id="ambientSound" src="ambient.mp3" loop></audio>
+    <script src="game.js"></script>
+    <script>
+        document.addEventListener('click', function() {
+            var audio = document.getElementById('ambientSound');
+            audio.play();
+            document.removeEventListener('click', arguments.callee);
+        });
+    </script>
+</body>
+</html>
