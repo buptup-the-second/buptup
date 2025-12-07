@@ -1,396 +1,520 @@
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d', { alpha: false });
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Zombie Shooter</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            cursor: none; /* Hide default OS cursor */
+            user-select: none;
+        }
 
-// --- CONFIGURATION ---
-const scale = 1; 
-canvas.width = window.innerWidth / scale;
-canvas.height = window.innerHeight / scale;
+        canvas {
+            display: block;
+        }
 
-const tileSize = 64;
-const fov = Math.PI / 3; 
-const mapWidth = 16;
-const mapHeight = 14;
+        #uiLayer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let clicks pass through to canvas */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
 
-// 1 = Wall, 0 = Empty, 9 = Start
-const map = [
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1],
-    [1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
-    [1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1],
-    [1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1],
-    [1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1],
-    [1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1],
-    [1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1],
-    [1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1],
-    [1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1],
-    [1, 0, 0, 1, 0, 0, 0, 9, 0, 0, 0, 0, 1, 0, 0, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-];
+        /* Overlay for Game Over / Start */
+        #menuOverlay {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            border: 2px solid #444;
+            pointer-events: auto; /* Re-enable clicks for buttons */
+            display: none; /* Hidden by default */
+            backdrop-filter: blur(5px);
+        }
 
-// --- PLAYER ---
-let player = {
-    x: tileSize * 1.5,
-    y: tileSize * 1.5,
-    angle: 0,
-    pitch: 0,
-    speed: 2.0,
-    bobPhase: 0
-};
+        h1 {
+            color: #ff3333;
+            margin: 0 0 20px 0;
+            text-shadow: 0 0 10px #ff0000;
+            font-size: 48px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
 
-// --- AUDIO ---
-let ambience = new Audio('ambient.mp3');
-ambience.loop = true;
-ambience.volume = 0.3; // Lower volume
+        p {
+            color: #fff;
+            font-size: 24px;
+            margin-bottom: 30px;
+        }
 
-// --- CREATURE ASSETS ---
-let creatureImg = new Image();
-creatureImg.src = 'creature.png'; // Ensure this exists
+        button {
+            padding: 15px 40px;
+            font-size: 24px;
+            background-color: #ff3333;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.2s;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(255, 0, 0, 0.4);
+        }
 
-// --- AI STATE ---
-const AI_STATE = {
-    STALKING: 0, // Moving towards player slowly
-    FROZEN: 1,   // Player is looking at it
-    HIDDEN: 2    // Teleporting logic
-};
+        button:hover {
+            background-color: #ff6666;
+            transform: scale(1.05);
+        }
 
-let creature = {
-    x: tileSize * 8,
-    y: tileSize * 8,
-    state: AI_STATE.STALKING,
-    speed: 0.8, // Slow speed
-    radius: 15, // Collision radius
-    teleportTimer: 0,
-    visibleTime: 0
-};
+        button:active {
+            transform: scale(0.95);
+        }
 
-let keys = {};
+        #scoreHud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 0 #000;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
 
-// --- INPUT HANDLERS ---
-window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-window.addEventListener('resize', () => {
-    canvas.width = window.innerWidth / scale;
-    canvas.height = window.innerHeight / scale;
-});
-
-canvas.addEventListener('click', () => {
-    canvas.requestPointerLock();
-    ambience.play().catch(e => {});
-});
-
-document.addEventListener('pointerlockchange', () => {
-    if (document.pointerLockElement === canvas) {
-        document.addEventListener('mousemove', mouseMoveHandler);
-    } else {
-        document.removeEventListener('mousemove', mouseMoveHandler);
-    }
-});
-
-function mouseMoveHandler(e) {
-    player.angle += e.movementX * 0.002;
-    // Keep angle normalized 0 to 2PI
-    if(player.angle > Math.PI * 2) player.angle -= Math.PI * 2;
-    if(player.angle < 0) player.angle += Math.PI * 2;
-
-    player.pitch -= e.movementY * 1.5;
-    // Clamp pitch to avoid flipping over or seeing void
-    player.pitch = Math.max(-canvas.height / 1.5, Math.min(canvas.height / 1.5, player.pitch));
-}
-
-function canMove(x, y) {
-    let mapX = Math.floor(x / tileSize);
-    let mapY = Math.floor(y / tileSize);
-    if (mapY < 0 || mapY >= mapHeight || mapX < 0 || mapX >= mapWidth) return false;
-    return map[mapY][mapX] !== 1;
-}
-
-// --- UPDATE LOOP ---
-function update() {
-    // PLAYER MOVEMENT
-    let dx = 0, dy = 0, moving = false;
-    if (keys['w']) { dx += Math.cos(player.angle); dy += Math.sin(player.angle); moving = true; }
-    if (keys['s']) { dx -= Math.cos(player.angle); dy -= Math.sin(player.angle); moving = true; }
-    if (keys['a']) { dx += Math.sin(player.angle); dy -= Math.cos(player.angle); moving = true; }
-    if (keys['d']) { dx -= Math.sin(player.angle); dy += Math.cos(player.angle); moving = true; }
-
-    if (moving) {
-        let len = Math.sqrt(dx*dx + dy*dy);
-        dx = (dx / len) * player.speed;
-        dy = (dy / len) * player.speed;
-
-        // Player Collision (Radius approx)
-        if (canMove(player.x + dx * 2, player.y)) player.x += dx;
-        if (canMove(player.x, player.y + dy * 2)) player.y += dy;
-
-        player.bobPhase += 0.15;
-    } else {
-        player.bobPhase = 0;
-    }
-
-    updateStalkerAI();
-}
-
-// --- STALKER AI ---
-function updateStalkerAI() {
-    const dx = player.x - creature.x;
-    const dy = player.y - creature.y;
-    const distToPlayer = Math.sqrt(dx*dx + dy*dy);
-
-    // Calculate angle to creature relative to player view
-    let angleToCreature = Math.atan2(dy, dx) - player.angle;
-    // Normalize angle
-    while (angleToCreature > Math.PI) angleToCreature -= 2 * Math.PI;
-    while (angleToCreature < -Math.PI) angleToCreature += 2 * Math.PI;
-
-    // Check if player is looking at creature (within FOV) and has Line of Sight
-    const inFOV = Math.abs(angleToCreature) < fov / 1.5; // Slightly narrower than full render FOV
-    const hasLOS = hasLineOfSight(creature.x, creature.y, player.x, player.y);
-    const isSeen = inFOV && hasLOS;
-
-    // --- BEHAVIOR LOGIC ---
+    <div id="scoreHud">Score: 0</div>
     
-    if (isSeen) {
-        // FROZEN: "Weeping Angel" mechanic. If you see it, it stops.
-        creature.state = AI_STATE.FROZEN;
-        creature.visibleTime++;
+    <div id="uiLayer">
+        <div id="menuOverlay">
+            <h1 id="titleText">ZOMBIE SURVIVAL</h1>
+            <p id="finalScoreText"></p>
+            <button id="actionButton">START GAME</button>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreHud = document.getElementById('scoreHud');
+        const menuOverlay = document.getElementById('menuOverlay');
+        const actionButton = document.getElementById('actionButton');
+        const finalScoreText = document.getElementById('finalScoreText');
+        const titleText = document.getElementById('titleText');
+
+        // --- Game Config ---
+        let width, height;
         
-        // If you stare at it too long, maybe it vanishes to teleport elsewhere?
-        if (creature.visibleTime > 300) { 
-             attemptTeleport(true); // Force teleport away
-        }
-    } else {
-        // STALKING: If not seen, move towards player
-        creature.state = AI_STATE.STALKING;
-        creature.visibleTime = 0;
-
-        // Move Logic
-        if (distToPlayer > tileSize) { // Don't clip into player
-            let moveX = (dx / distToPlayer) * creature.speed;
-            let moveY = (dy / distToPlayer) * creature.speed;
-
-            // Robust Wall Collision for AI
-            // We check the "shoulder" width of the creature to prevent clipping
-            let nextX = creature.x + moveX;
-            let nextY = creature.y + moveY;
-            let radius = creature.radius;
-
-            if (canMove(nextX + radius, creature.y) && canMove(nextX - radius, creature.y) &&
-                canMove(nextX, creature.y + radius) && canMove(nextX, creature.y - radius)) {
-                creature.x += moveX;
+        const config = {
+            playerSpeed: 5,
+            bulletSpeed: 12,
+            baseSpawnRate: 2000,
+            friction: 0.9, // smooth player movement
+            colors: {
+                player: '#3498db',
+                bullet: '#f1c40f',
+                zombie: '#2ecc71',
+                bigZombie: '#e74c3c',
+                bg: '#1a1a1a'
             }
+        };
+
+        // --- Game State ---
+        let gameState = 'MENU'; // MENU, PLAYING, GAMEOVER
+        let score = 0;
+        let lastTime = 0;
+        let spawnTimer = 0;
+        let currentSpawnRate = config.baseSpawnRate;
+        let mouse = { x: 0, y: 0 };
+        
+        // --- Entities ---
+        const player = { x: 0, y: 0, dx: 0, dy: 0, size: 20, angle: 0, recoil: 0 };
+        const bullets = [];
+        const zombies = [];
+        const particles = [];
+        const input = { w: false, a: false, s: false, d: false, firing: false };
+
+        // --- Resize Handling ---
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            if (gameState === 'MENU') {
+                player.x = width / 2;
+                player.y = height / 2;
+            }
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- Input Handling ---
+        window.addEventListener('mousemove', e => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+        
+        window.addEventListener('mousedown', () => input.firing = true);
+        window.addEventListener('mouseup', () => input.firing = false);
+        
+        window.addEventListener('keydown', e => {
+            if (e.key === 'w' || e.key === 'ArrowUp') input.w = true;
+            if (e.key === 's' || e.key === 'ArrowDown') input.s = true;
+            if (e.key === 'a' || e.key === 'ArrowLeft') input.a = true;
+            if (e.key === 'd' || e.key === 'ArrowRight') input.d = true;
+            if (e.key === 'p') togglePause();
+        });
+
+        window.addEventListener('keyup', e => {
+            if (e.key === 'w' || e.key === 'ArrowUp') input.w = false;
+            if (e.key === 's' || e.key === 'ArrowDown') input.s = false;
+            if (e.key === 'a' || e.key === 'ArrowLeft') input.a = false;
+            if (e.key === 'd' || e.key === 'ArrowRight') input.d = false;
+        });
+
+        // --- Classes & Helpers ---
+
+        class Particle {
+            constructor(x, y, color, speed) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                const angle = Math.random() * Math.PI * 2;
+                const velocity = Math.random() * speed;
+                this.dx = Math.cos(angle) * velocity;
+                this.dy = Math.sin(angle) * velocity;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.03 + 0.01;
+                this.size = Math.random() * 4 + 2;
+            }
+            update() {
+                this.x += this.dx;
+                this.y += this.dy;
+                this.alpha -= this.decay;
+                this.size *= 0.95; // Shrink
+            }
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function createExplosion(x, y, color, count) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, color, 5));
+            }
+        }
+
+        // --- Core Logic ---
+
+        function initGame() {
+            player.x = width / 2;
+            player.y = height / 2;
+            player.dx = 0;
+            player.dy = 0;
+            score = 0;
+            currentSpawnRate = config.baseSpawnRate;
+            bullets.length = 0;
+            zombies.length = 0;
+            particles.length = 0;
+            scoreHud.innerText = `Score: 0`;
             
-            if (canMove(creature.x + radius, nextY) && canMove(creature.x - radius, nextY) &&
-                canMove(creature.x, nextY + radius) && canMove(creature.x, nextY - radius)) {
-                creature.y += moveY;
+            gameState = 'PLAYING';
+            menuOverlay.style.display = 'none';
+        }
+
+        function showMenu() {
+            gameState = 'MENU';
+            menuOverlay.style.display = 'block';
+            titleText.innerText = "ZOMBIE SHOOTER";
+            finalScoreText.style.display = 'none';
+            actionButton.innerText = "PLAY";
+        }
+
+        function gameOver() {
+            gameState = 'GAMEOVER';
+            createExplosion(player.x, player.y, config.colors.player, 50);
+            menuOverlay.style.display = 'block';
+            titleText.innerText = "GAME OVER";
+            finalScoreText.innerText = `Final Score: ${score}`;
+            finalScoreText.style.display = 'block';
+            actionButton.innerText = "RESTART";
+        }
+
+        function spawnZombie() {
+            const edge = Math.floor(Math.random() * 4);
+            let x, y;
+            const buffer = 50;
+
+            if (edge === 0) { x = Math.random() * width; y = -buffer; } // Top
+            else if (edge === 1) { x = width + buffer; y = Math.random() * height; } // Right
+            else if (edge === 2) { x = Math.random() * width; y = height + buffer; } // Bottom
+            else { x = -buffer; y = Math.random() * height; } // Left
+
+            const isBig = Math.random() < 0.15; // 15% chance for big zombie
+            
+            zombies.push({
+                x: x, 
+                y: y,
+                size: isBig ? 35 : 18,
+                speed: isBig ? 1.5 : (2 + Math.random()), // Random speed for variety
+                color: isBig ? config.colors.bigZombie : config.colors.zombie,
+                hp: isBig ? 5 : 1,
+                maxHp: isBig ? 5 : 1
+            });
+        }
+
+        let shootTimer = 0;
+        function update(deltaTime) {
+            if (gameState !== 'PLAYING') return;
+
+            // -- Player Movement (Acceleration/Friction model) --
+            if (input.w) player.dy -= 1;
+            if (input.s) player.dy += 1;
+            if (input.a) player.dx -= 1;
+            if (input.d) player.dx += 1;
+
+            player.x += player.dx;
+            player.y += player.dy;
+
+            // Friction
+            player.dx *= config.friction;
+            player.dy *= config.friction;
+
+            // Boundaries
+            if (player.x < player.size) player.x = player.size;
+            if (player.y < player.size) player.y = player.size;
+            if (player.x > width - player.size) player.x = width - player.size;
+            if (player.y > height - player.size) player.y = height - player.size;
+
+            // Player Rotation
+            player.angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+
+            // -- Shooting --
+            if (shootTimer > 0) shootTimer -= deltaTime;
+            
+            if (input.firing && shootTimer <= 0) {
+                const gunTipX = player.x + Math.cos(player.angle) * 35;
+                const gunTipY = player.y + Math.sin(player.angle) * 35;
+                
+                bullets.push({
+                    x: gunTipX,
+                    y: gunTipY,
+                    dx: Math.cos(player.angle) * config.bulletSpeed,
+                    dy: Math.sin(player.angle) * config.bulletSpeed
+                });
+                
+                // Recoil effect
+                player.recoil = 5;
+                shootTimer = 150; // ms cooldown
+            }
+            if (player.recoil > 0) player.recoil *= 0.8;
+
+            // -- Bullets --
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let b = bullets[i];
+                b.x += b.dx;
+                b.y += b.dy;
+
+                // Off screen removal
+                if (b.x < 0 || b.x > width || b.y < 0 || b.y > height) {
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // -- Zombies --
+            spawnTimer += deltaTime;
+            if (spawnTimer > currentSpawnRate) {
+                spawnZombie();
+                spawnTimer = 0;
+                // Increase difficulty slightly
+                if (currentSpawnRate > 400) currentSpawnRate -= 10;
+            }
+
+            for (let i = zombies.length - 1; i >= 0; i--) {
+                let z = zombies[i];
+                const angle = Math.atan2(player.y - z.y, player.x - z.x);
+                z.x += Math.cos(angle) * z.speed;
+                z.y += Math.sin(angle) * z.speed;
+
+                // Collision Player vs Zombie
+                const distPlayer = Math.hypot(player.x - z.x, player.y - z.y);
+                if (distPlayer < player.size + z.size - 5) {
+                    gameOver();
+                }
+
+                // Collision Bullet vs Zombie
+                for (let j = bullets.length - 1; j >= 0; j--) {
+                    let b = bullets[j];
+                    const distBullet = Math.hypot(b.x - z.x, b.y - z.y);
+                    
+                    if (distBullet < z.size + 5) {
+                        z.hp--;
+                        bullets.splice(j, 1); // Remove bullet
+
+                        // Hit effect (Particle)
+                        createExplosion(z.x, z.y, z.color, 3);
+                        
+                        // Pushback zombie
+                        z.x -= Math.cos(angle) * 10;
+                        z.y -= Math.sin(angle) * 10;
+
+                        if (z.hp <= 0) {
+                            score += (z.maxHp > 1) ? 50 : 10;
+                            scoreHud.innerText = `Score: ${score}`;
+                            createExplosion(z.x, z.y, z.color, 15); // Big explosion
+                            zombies.splice(i, 1);
+                        }
+                        break; // Bullet hit something, stop checking other zombies for this bullet
+                    }
+                }
+            }
+
+            // -- Particles --
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                if (particles[i].alpha <= 0) {
+                    particles.splice(i, 1);
+                }
             }
         }
 
-        // TELEPORT LOGIC (The "Taunt")
-        // If creature is far away or behind walls for too long, teleport behind player
-        creature.teleportTimer++;
-        if (creature.teleportTimer > 400 && distToPlayer > tileSize * 6) {
-             attemptTeleport(false);
+        function draw() {
+            // Clear Screen with Fade effect for trails (optional, keeping it clean here)
+            ctx.fillStyle = config.colors.bg;
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw Particles
+            particles.forEach(p => p.draw());
+
+            // Draw Bullets (Glowing)
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = config.colors.bullet;
+            ctx.fillStyle = config.colors.bullet;
+            bullets.forEach(b => {
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.shadowBlur = 0;
+
+            // Draw Zombies
+            zombies.forEach(z => {
+                ctx.fillStyle = z.color;
+                
+                // Add a dark outline for health indication style
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                
+                ctx.beginPath();
+                ctx.arc(z.x, z.y, z.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Eyes (to show rotation)
+                const angle = Math.atan2(player.y - z.y, player.x - z.x);
+                const eyeX = z.x + Math.cos(angle) * (z.size * 0.6);
+                const eyeY = z.y + Math.sin(angle) * (z.size * 0.6);
+                
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(eyeX, eyeY, z.size/4, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            if (gameState !== 'GAMEOVER') {
+                // Draw Player
+                ctx.save();
+                ctx.translate(player.x, player.y);
+                ctx.rotate(player.angle);
+
+                // Gun
+                ctx.fillStyle = '#555';
+                const recoilOffset = -player.recoil; // moves gun back
+                ctx.fillRect(10 + recoilOffset, -5, 30, 10);
+
+                // Body
+                ctx.fillStyle = config.colors.player;
+                ctx.beginPath();
+                ctx.arc(0, 0, player.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Hands (visual detail)
+                ctx.fillStyle = '#2980b9';
+                ctx.beginPath();
+                ctx.arc(15, 10, 8, 0, Math.PI * 2); // Right hand
+                ctx.arc(15, -10, 8, 0, Math.PI * 2); // Left hand
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            // Draw Custom Cursor (Crosshair)
+            drawCrosshair();
         }
-    }
-}
 
-function attemptTeleport(forceAway) {
-    // Try 10 times to find a valid spot
-    for(let i=0; i<10; i++) {
-        let spawnDist = forceAway ? tileSize * 10 : tileSize * 4;
-        // Calculate a spot BEHIND the player
-        // Player angle + PI is behind, plus some random offset
-        let spawnAngle = player.angle + Math.PI + (Math.random() * 1.5 - 0.75); 
-        
-        let tx = player.x + Math.cos(spawnAngle) * spawnDist;
-        let ty = player.y + Math.sin(spawnAngle) * spawnDist;
-
-        if (canMove(tx, ty) && canMove(tx + 10, ty) && canMove(tx, ty + 10)) {
-             // Ensure line of sight is BROKEN so it doesn't pop in visibly
-             if (!hasLineOfSight(player.x, player.y, tx, ty)) {
-                 creature.x = tx;
-                 creature.y = ty;
-                 creature.teleportTimer = 0;
-                 creature.visibleTime = 0;
-                 console.log("Stalker relocated...");
-                 break;
-             }
+        function drawCrosshair() {
+            const size = 10;
+            const gap = 5;
+            
+            ctx.strokeStyle = 'rgba(255, 50, 50, 0.8)';
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            // Top
+            ctx.moveTo(mouse.x, mouse.y - gap);
+            ctx.lineTo(mouse.x, mouse.y - size);
+            // Bottom
+            ctx.moveTo(mouse.x, mouse.y + gap);
+            ctx.lineTo(mouse.x, mouse.y + size);
+            // Left
+            ctx.moveTo(mouse.x - gap, mouse.y);
+            ctx.lineTo(mouse.x - size, mouse.y);
+            // Right
+            ctx.moveTo(mouse.x + gap, mouse.y);
+            ctx.lineTo(mouse.x + size, mouse.y);
+            
+            ctx.stroke();
+            
+            // Center dot
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.beginPath();
+            ctx.arc(mouse.x, mouse.y, 2, 0, Math.PI*2);
+            ctx.fill();
         }
-    }
-}
 
-function hasLineOfSight(x0, y0, x1, y1) {
-    let dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
-    let sx = (x0 < x1) ? 1 : -1, sy = (y0 < y1) ? 1 : -1;
-    let err = dx - dy;
-    let dist = 0;
-    while (true) {
-        if (Math.abs(x0 - x1) < 5 && Math.abs(y0 - y1) < 5) return true;
-        
-        let mapX = Math.floor(x0 / tileSize);
-        let mapY = Math.floor(y0 / tileSize);
-        if (map[mapY][mapX] === 1) return false;
+        // --- Game Loop ---
+        function loop(timestamp) {
+            let deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
 
-        let e2 = 2 * err;
-        if (e2 > -dy) { err -= dy; x0 += sx * 8; } // Step 8 for speed
-        if (e2 < dx) { err += dx; y0 += sy * 8; }
-        
-        // Safety break
-        dist++; if(dist>1000) return false;
-    }
-}
+            update(deltaTime);
+            draw();
 
-// --- RENDERING ---
-
-function castRay(angle) {
-    let sin = Math.sin(angle), cos = Math.cos(angle);
-    let x = player.x, y = player.y;
-    let dist = 0;
-    const stepSize = 1; 
-
-    while (true) {
-        x += cos * stepSize;
-        y += sin * stepSize;
-        dist += stepSize;
-        
-        let mapX = Math.floor(x / tileSize);
-        let mapY = Math.floor(y / tileSize);
-
-        if (mapY < 0 || mapY >= mapHeight || mapX < 0 || mapX >= mapWidth) return { dist: dist, hit: true };
-        if (map[mapY][mapX] === 1) return { dist: dist, hit: true };
-    }
-}
-
-function draw() {
-    // Clear screen
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0,0, canvas.width, canvas.height);
-
-    // --- HORIZON CALCULATION ---
-    // This connects the floor and ceiling movement to the pitch correctly
-    const horizon = (canvas.height / 2) + player.pitch;
-
-    // Ceiling (Dark Gray Gradient)
-    let gradC = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradC.addColorStop(0, '#050505');
-    gradC.addColorStop(1, '#1a1a1a');
-    ctx.fillStyle = gradC;
-    ctx.fillRect(0, 0, canvas.width, horizon);
-
-    // Floor (Darker Gradient)
-    let gradF = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradF.addColorStop(0, '#0d0d0d'); // Horizon color
-    gradF.addColorStop(1, '#222');    // Feet color
-    ctx.fillStyle = gradF;
-    ctx.fillRect(0, horizon, canvas.width, canvas.height - horizon);
-
-    const numRays = canvas.width;
-    const bobOffset = Math.sin(player.bobPhase) * 6;
-    let zBuffer = new Array(numRays).fill(0);
-
-    for (let i = 0; i < numRays; i++) {
-        let rayAngle = (player.angle - fov / 2) + (i / numRays) * fov;
-        let ray = castRay(rayAngle);
-        let dist = ray.dist;
-
-        // Fish-eye fix
-        let ca = player.angle - rayAngle;
-        dist = dist * Math.cos(ca);
-        zBuffer[i] = dist;
-
-        let wallHeight = (tileSize / dist) * (canvas.height * 0.8);
-        
-        // --- DARKER SHADING ---
-        // Increased the divisor from 0.00005 to 0.00015 for faster light falloff
-        let shade = 200 / (1 + dist * dist * 0.00015);
-        if (shade > 180) shade = 180; // Cap brightness
-
-        ctx.fillStyle = `rgb(${shade}, ${shade}, ${shade})`;
-        
-        // Draw Wall Strip centered around the Horizon + Bobbing
-        let wallTop = horizon - (wallHeight / 2) + bobOffset;
-        
-        // Anti-aliasing helper (draw slightly wider strips to prevent gaps)
-        ctx.fillRect(i, wallTop, 1.5, wallHeight);
-    }
-
-    drawCreature(zBuffer, bobOffset, horizon);
-    drawVignette();
-    drawNoise();
-}
-
-function drawCreature(zBuffer, bobOffset, horizon) {
-    let dx = creature.x - player.x;
-    let dy = creature.y - player.y;
-    let dist = Math.sqrt(dx*dx + dy*dy);
-
-    let spriteAngle = Math.atan2(dy, dx) - player.angle;
-    while (spriteAngle > Math.PI) spriteAngle -= 2 * Math.PI;
-    while (spriteAngle < -Math.PI) spriteAngle += 2 * Math.PI;
-
-    if (Math.abs(spriteAngle) < fov) {
-        let screenH = (tileSize / dist) * (canvas.height * 0.8);
-        let screenW = screenH * (creatureImg.width / creatureImg.height || 0.6);
-        
-        let screenX = (0.5 * (spriteAngle / (fov / 2)) + 0.5) * canvas.width;
-        
-        // Simple Z-check
-        let checkIdx = Math.floor(screenX);
-        if (checkIdx >= 0 && checkIdx < canvas.width) {
-             if (dist < zBuffer[checkIdx]) {
-                 let y = horizon - (screenH / 2) + bobOffset;
-                 
-                 // Lighting for sprite
-                 let brightness = 1;
-                 if (dist > 100) brightness = 200 / (1 + dist * dist * 0.0001);
-                 
-                 ctx.save();
-                 // Combine fade-out with distance darkening
-                 ctx.filter = `brightness(${brightness}%)`;
-                 
-                 if(creatureImg.complete && creatureImg.naturalHeight !== 0){
-                    ctx.drawImage(creatureImg, screenX - screenW / 2, y, screenW, screenH);
-                 } else {
-                     // Spooky Red Eyes Fallback
-                     ctx.fillStyle = 'black';
-                     ctx.fillRect(screenX - screenW/2, y, screenW, screenH);
-                     ctx.fillStyle = 'red';
-                     ctx.fillRect(screenX - 5, y + 10, 5, 5);
-                     ctx.fillRect(screenX + 5, y + 10, 5, 5);
-                 }
-                 ctx.restore();
-             }
+            requestAnimationFrame(loop);
         }
-    }
-}
 
-function drawVignette() {
-    const gradient = ctx.createRadialGradient(
-        canvas.width / 2, canvas.height / 2, canvas.width / 4,
-        canvas.width / 2, canvas.height / 2, canvas.width
-    );
-    gradient.addColorStop(0, 'rgba(0,0,0,0)');
-    gradient.addColorStop(1, 'rgba(0,0,0,0.95)'); // Darker edges
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-}
+        // Start
+        actionButton.addEventListener('click', initGame);
+        showMenu();
+        requestAnimationFrame(loop);
 
-function drawNoise() {
-    ctx.fillStyle = "rgba(100, 100, 255, 0.02)"; // Slight blue tint to noise
-    for(let i=0; i<canvas.width; i+=3) {
-        if(Math.random() > 0.8) {
-            let h = Math.random() * canvas.height;
-            ctx.fillRect(i, h, 2, 2);
-        }
-    }
-}
-
-function gameLoop() {
-    update();
-    draw();
-    requestAnimationFrame(gameLoop);
-}
-
-gameLoop();
+    </script>
+</body>
+</html>
