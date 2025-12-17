@@ -16,6 +16,9 @@
             background-color: #050000;
             overflow: hidden; /* No scrollbars */
             font-family: 'Cinzel', serif;
+            /* Hide the default system cursor */
+            cursor: none !important;
+            user-select: none;
         }
 
         /* --- THE FIRE CANVAS --- */
@@ -71,7 +74,6 @@
         }
 
         /* --- TEXT REVEAL ANIMATIONS --- */
-        /* Staggered fade-ins for dramatic reading */
         .stanza-1 { animation: reveal 2s ease-out forwards 1s; }
         .stanza-2 { animation: reveal 2s ease-out forwards 4s; }
         .stanza-3 { animation: reveal 2s ease-out forwards 8s; }
@@ -106,6 +108,17 @@
             z-index: 5;
             background: radial-gradient(circle, transparent 40%, #000000 95%);
         }
+
+        /* --- CUSTOM CURSOR STYLING --- */
+        .custom-cursor {
+            position: fixed;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 9999;
+            /* Added a fire-glow shadow to the hand image */
+            filter: drop-shadow(0 0 5px #ff4500);
+        }
     </style>
 </head>
 <body>
@@ -128,17 +141,29 @@
         </p>
 
         <p class="final-line">
-            He is Bup, and he is here.
+            He was Bup, and he is here.
         </p>
     </div>
 
     <canvas id="fireCanvas"></canvas>
 
     <script>
+        // --- CUSTOM CURSOR ---
+        const customCursor = document.createElement('div');
+        customCursor.classList.add('custom-cursor');
+        // Note: 'hand.png' must exist in the same folder
+        customCursor.innerHTML = '<img src="hand.png" style="width: 35px; height: 35px;">';
+        document.body.appendChild(customCursor);
+
+        document.addEventListener('mousemove', (e) => {
+            // Using transform for better performance and smoothness
+            customCursor.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+        });
+
+        // --- FIRE ENGINE ---
         const canvas = document.getElementById('fireCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Resize canvas to full screen
         let w, h;
         function resize() {
             w = canvas.width = window.innerWidth;
@@ -147,9 +172,8 @@
         window.addEventListener('resize', resize);
         resize();
 
-        // Particle System
         const particles = [];
-        const particleCount = 400; // Increase for more fire
+        const particleCount = 400; 
 
         class Particle {
             constructor() {
@@ -157,16 +181,14 @@
             }
 
             reset() {
-                // Start at the bottom, somewhat centered but spread out
                 this.x = Math.random() * w;
-                this.y = h + Math.random() * 50; // Start slightly below screen
-                this.vx = (Math.random() - 0.5) * 3; // Horizontal drift
-                this.vy = -(Math.random() * 4 + 2); // Upward speed
+                this.y = h + Math.random() * 50; 
+                this.vx = (Math.random() - 0.5) * 3; 
+                this.vy = -(Math.random() * 4 + 2); 
                 this.size = Math.random() * 30 + 10;
-                this.life = Math.random() * 0.5 + 0.5; // Opacity/Life
+                this.life = Math.random() * 0.5 + 0.5; 
                 this.decay = Math.random() * 0.01 + 0.005;
                 
-                // Color variations (Yellow -> Orange -> Red)
                 const colors = ['255, 200, 0', '255, 100, 0', '255, 50, 0', '200, 0, 0'];
                 this.color = colors[Math.floor(Math.random() * colors.length)];
             }
@@ -174,13 +196,10 @@
             update() {
                 this.x += this.vx;
                 this.y += this.vy;
-                this.size -= 0.1; // Shrink as it rises
+                this.size -= 0.1; 
                 this.life -= this.decay;
-
-                // Add some "wind" or turbulence
                 this.vx += (Math.random() - 0.5) * 0.1;
 
-                // Reset if dead
                 if (this.life <= 0 || this.size <= 0) {
                     this.reset();
                 }
@@ -188,7 +207,6 @@
 
             draw() {
                 ctx.beginPath();
-                // Create a glow effect for each particle
                 let gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);
                 gradient.addColorStop(0, `rgba(${this.color}, ${this.life})`);
                 gradient.addColorStop(1, `rgba(${this.color}, 0)`);
@@ -199,19 +217,15 @@
             }
         }
 
-        // Initialize particles
         for (let i = 0; i < particleCount; i++) {
             particles.push(new Particle());
         }
 
-        // Animation Loop
         function animate() {
-            // Clear screen with a slight fade for trail effect
             ctx.globalCompositeOperation = 'source-over';
             ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
             ctx.fillRect(0, 0, w, h);
 
-            // Use lighter blend mode for fire intensity
             ctx.globalCompositeOperation = 'lighter';
 
             particles.forEach(p => {
