@@ -225,7 +225,7 @@
     <div id="click-counter">Clicks: 0</div>
 
     <script>
-        const pages = ['zombie', 'escape', 'calculator', 'store', 'demo'];
+        const pages = ['zombie', 'escape', 'calculator', 'store', 'demo', 'about'];
 
         // --- Search Bar Suggestions ---
         document.getElementById('search-bar').addEventListener('input', function() {
@@ -270,6 +270,9 @@
                     break;
                 case 'demo':
                     window.location.href = 'game/game.html';
+                    break;
+                case 'demo':
+                    window.location.href = 'about.html';
                     break;
                 default:
                     alert('Page not found!');
@@ -368,4 +371,5 @@
     </script>
 </body>
 </html>
+
 
