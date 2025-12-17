@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Engine V6 - Terrain & Rocks</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background-color: #000; user-select: none; }
+        
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #instructions {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            background: rgba(0,0,0,0.6); color: white; 
+            backdrop-filter: blur(5px);
+            pointer-events: auto;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+
+        h1 { margin: 0; font-size: 3rem; text-transform: uppercase; letter-spacing: 5px; text-shadow: 0 4px 10px black; }
+        p { font-size: 1.2rem; color: #ddd; margin-top: 10px; }
+        .key { background: #333; padding: 2px 8px; border-radius: 4px; border: 1px solid #555; color: #fff; font-weight: bold; }
+
+        #crosshair {
+            position: absolute; top: 50%; left: 50%;
+            width: 4px; height: 4px;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0,0,0,0.5);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* WEAPON SYSTEM */
+        #weapon-container {
+            position: absolute;
+            bottom: 0; right: 25%;
+            width: 0; height: 0;
+            transform-origin: bottom center;
+            transition: transform 0.1s linear;
+        }
+
+        /* The Image Hand */
+        #hand-image {
+            position: absolute;
+            bottom: -50px; 
+            right: -150px;
+            width: 400px; 
+            height: auto;
+            pointer-events: none;
+            /* Fallback if image missing */
+            min-height: 300px;
+            min-width: 200px;
+            /* transform: rotate(-5deg); */
+        }
+
+        /* Punch Animation */
+        @keyframes punch {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            15% { transform: translate(-30px, -20px) rotate(-10deg) scale(1.1); }
+            40% { transform: translate(60px, 40px) rotate(10deg) scale(0.9); }
+            100% { transform: translate(0, 0) rotate(0deg); }
+        }
+
+        .punching #hand-image {
+            animation: punch 0.2s cubic-bezier(0.1, 0.7, 1.0, 0.1) forwards;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <div id="crosshair"></div>
+        <div id="weapon-container">
+            <img id="hand-image" src="hand.png" alt="[MISSING hand.png]" draggable="false">
+        </div>
+    </div>
+
+    <div id="instructions">
+        <h1>High Lands V6</h1>
+        <p>Click to Capture</p>
+        <p><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> Move | <span class="key">SHIFT</span> Sprint | <span class="key">SPACE</span> Jump</p>
+    </div>
+
+    <script type="importmap">
+        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+        // --- Configuration ---
+        const CONFIG = {
+            PLAYER_HEIGHT: 18, 
+            PLAYER_RADIUS: 3.5,
+            GRAVITY: 800.0,
+            JUMP_FORCE: 200.0,
+            WALK_SPEED: 450.0,
+            SPRINT_SPEED: 900.0,
+            TREE_COUNT: 150,
+            ROCK_COUNT: 80,
+            WORLD_SIZE: 4000,
+            BOB_SPEED: 12
+        };
+
+        // --- Globals ---
+        let camera, scene, renderer, controls;
+        const velocity = new THREE.Vector3();
+        const direction = new THREE.Vector3();
+        
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        let canJump = false;
+        let isSprinting = false;
+
+        // Visuals
+        let prevTime = performance.now();
+        let bobTimer = 0;
+        
+        // Physics
+        const collidableObjects = []; 
+        const playerBox = new THREE.Box3();
+        const tempBox = new THREE.Box3();
+
+        init();
+        animate();
+
+        function init() {
+            // 1. Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.body.appendChild(renderer.domElement);
+
+            // 2. Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.FogExp2(0x8cb6c9, 0.002);
+
+            // 3. Camera & Controls
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 3000);
+            
+            // CRITICAL FIX: Change rotation order.
+            // 'YXZ' means Yaw (Y) applies first, then Pitch (X), then Roll (Z).
+            // This prevents the "twist" when looking down and tilting.
+            camera.rotation.order = 'YXZ';
+
+            controls = new PointerLockControls(camera, document.body);
+            
+            const instructions = document.getElementById('instructions');
+            instructions.addEventListener('click', () => controls.lock());
+            
+            controls.addEventListener('lock', () => { instructions.style.opacity = '0'; setTimeout(()=> instructions.style.display = 'none', 300); });
+            controls.addEventListener('unlock', () => { instructions.style.display = 'flex'; setTimeout(()=> instructions.style.opacity = '1', 10); });
+
+            // Initial Position
+            const startY = getTerrainHeight(0, 0) + CONFIG.PLAYER_HEIGHT;
+            controls.getObject().position.set(0, startY, 0);
+            scene.add(controls.getObject());
+
+            // 4. Lighting
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+            hemiLight.position.set(0, 200, 0);
+            scene.add(hemiLight);
+
+            const sun = new THREE.DirectionalLight(0xffeebb, 1.5);
+            sun.position.set(150, 300, 100);
+            sun.castShadow = true;
+            sun.shadow.mapSize.set(2048, 2048);
+            sun.shadow.camera.left = -1000; sun.shadow.camera.right = 1000;
+            sun.shadow.camera.top = 1000; sun.shadow.camera.bottom = -1000;
+            scene.add(sun);
+
+            // 5. World Generation
+            generateTerrain();
+            generateRocks();
+            generateTrees();
+
+            // 6. Listeners
+            setupInputs();
+            window.addEventListener('resize', onWindowResize);
+            document.addEventListener('mousedown', performPunch);
+        }
+
+        function setupInputs() {
+            const onKeyDown = (e) => {
+                switch (e.code) {
+                    case 'KeyW': moveForward = true; break;
+                    case 'KeyA': moveLeft = true; break;
+                    case 'KeyS': moveBackward = true; break;
+                    case 'KeyD': moveRight = true; break;
+                    case 'ShiftLeft': isSprinting = true; break;
+                    case 'Space': if (canJump) { velocity.y += CONFIG.JUMP_FORCE; canJump = false; } break;
+                }
+            };
+            const onKeyUp = (e) => {
+                switch (e.code) {
+                    case 'KeyW': moveForward = false; break;
+                    case 'KeyA': moveLeft = false; break;
+                    case 'KeyS': moveBackward = false; break;
+                    case 'KeyD': moveRight = false; break;
+                    case 'ShiftLeft': isSprinting = false; break;
+                }
+            };
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+        }
+
+        // --- MATH & NOISE HELPERS ---
+
+        // Simple function to get a consistent height for the ground
+        function getTerrainHeight(x, z) {
+            // Combine a few sine waves to create rolling hills
+            const huge = Math.sin(x * 0.002) * Math.cos(z * 0.002) * 40;
+            const medium = Math.sin(x * 0.01 + 5) * Math.cos(z * 0.01) * 10;
+            const small = Math.sin(x * 0.03) * Math.cos(z * 0.03 + 2) * 2;
+            return Math.max(-20, huge + medium + small);
+        }
+
+        // --- WORLD GENERATION ---
+
+        function generateTerrain() {
+            // Create texture
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            
+            // Background
+            ctx.fillStyle = '#3a4f15'; 
+            ctx.fillRect(0,0,512,512);
+
+            // Grass noise
+            for(let i=0; i<10000; i++) {
+                ctx.fillStyle = Math.random() > 0.5 ? '#4b6b1f' : '#28380e';
+                ctx.fillRect(Math.random()*512, Math.random()*512, 2, 2);
+            }
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(60, 60); 
+            tex.minFilter = THREE.LinearMipMapLinearFilter;
+            tex.anisotropy = 16;
+
+            const mat = new THREE.MeshStandardMaterial({ 
+                map: tex, 
+                roughness: 0.9, 
+                color: 0xaaaaaa 
+            });
+
+            // Create Segmented Plane
+            const segments = 128;
+            const geo = new THREE.PlaneGeometry(CONFIG.WORLD_SIZE, CONFIG.WORLD_SIZE, segments, segments);
+
+            // Apply Heightmap to Vertices
+            const posAttribute = geo.attributes.position;
+            const vertex = new THREE.Vector3();
+
+            for (let i = 0; i < posAttribute.count; i++) {
+                vertex.fromBufferAttribute(posAttribute, i);
+                // In PlaneGeometry, Z is 0. We usually rotate X by -90, so Z becomes Y (Height).
+                // But here we affect the 'local' Z which becomes World Y.
+                const h = getTerrainHeight(vertex.x, vertex.y); // Note: Plane is X/Y, we map Y to World Z
+                posAttribute.setZ(i, h);
+            }
+
+            geo.computeVertexNormals();
+
+            const terrain = new THREE.Mesh(geo, mat);
+            terrain.rotation.x = -Math.PI / 2;
+            terrain.receiveShadow = true;
+            scene.add(terrain);
+        }
+
+        function generateRocks() {
+            const rockMat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.8, flatShading: true });
+            const rockGeo = new THREE.DodecahedronGeometry(1, 0); // Low poly look
+
+            for(let i=0; i<CONFIG.ROCK_COUNT; i++) {
+                const x = (Math.random() - 0.5) * (CONFIG.WORLD_SIZE - 100);
+                const z = (Math.random() - 0.5) * (CONFIG.WORLD_SIZE - 100);
+
+                const size = 2 + Math.random() * 5;
+                const h = getTerrainHeight(x, z);
+
+                const rock = new THREE.Mesh(rockGeo, rockMat);
+                rock.position.set(x, h + (size*0.3), z); // Embed slightly in ground
+                rock.scale.set(size, size * 0.7, size);
+                
+                rock.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+                rock.castShadow = true;
+                rock.receiveShadow = true;
+
+                // Collision Box
+                const boundary = new THREE.Mesh(new THREE.BoxGeometry(size*1.5, size*2, size*1.5));
+                boundary.position.copy(rock.position);
+                boundary.visible = false;
+                scene.add(boundary);
+                collidableObjects.push(boundary);
+
+                scene.add(rock);
+            }
+        }
+
+        function generateTrees() {
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 1.0 });
+            const leafMat = new THREE.MeshStandardMaterial({ color: 0x1b5e20, roughness: 0.8 });
+            const geomTrunk = new THREE.CylinderGeometry(1, 1.5, 1, 6);
+            const geomCone = new THREE.ConeGeometry(1, 1, 6);
+
+            for (let i = 0; i < CONFIG.TREE_COUNT; i++) {
+                const x = (Math.random() - 0.5) * (CONFIG.WORLD_SIZE - 200);
+                const z = (Math.random() - 0.5) * (CONFIG.WORLD_SIZE - 200);
+                
+                const h = getTerrainHeight(x, z);
+                
+                // Don't spawn underwater if we had water, or on steep slopes (simplified)
+                if(Math.abs(x) < 50 && Math.abs(z) < 50) continue;
+
+                const scale = 5 + Math.random() * 4; 
+                const trunkHeight = 10 * scale;
+
+                const trunk = new THREE.Mesh(geomTrunk, trunkMat);
+                trunk.position.set(x, h + (trunkHeight / 2), z);
+                trunk.scale.set(scale, trunkHeight, scale);
+                trunk.castShadow = true;
+                trunk.receiveShadow = true;
+
+                // Leaves
+                const layers = 4 + Math.floor(Math.random() * 3); 
+                for(let L=0; L<layers; L++) {
+                    const widthRatio = 1 - (L / layers); 
+                    const coneRadius = (4 * scale) * widthRatio;
+                    const leaves = new THREE.Mesh(geomCone, leafMat);
+                    
+                    leaves.scale.set(coneRadius/scale, (4 * scale)/trunkHeight, coneRadius/scale);
+                    leaves.position.y = (0.4) + (L * 0.15); 
+                    leaves.castShadow = true;
+                    trunk.add(leaves);
+                }
+
+                // Physics
+                const boundary = new THREE.Mesh(new THREE.BoxGeometry(2*scale, trunkHeight, 2*scale));
+                boundary.position.copy(trunk.position);
+                boundary.visible = false;
+                scene.add(boundary);
+                collidableObjects.push(boundary);
+
+                scene.add(trunk);
+            }
+        }
+
+        function performPunch() {
+            if(!controls.isLocked) return;
+            const container = document.getElementById('weapon-container');
+            container.classList.remove('punching');
+            void container.offsetWidth; 
+            container.classList.add('punching');
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = performance.now();
+            const delta = Math.min((time - prevTime) / 1000, 0.1);
+            prevTime = time;
+
+            if (controls.isLocked) {
+                // --- PHYSICS ---
+                
+                velocity.x -= velocity.x * 8.0 * delta;
+                velocity.z -= velocity.z * 8.0 * delta;
+                velocity.y -= CONFIG.GRAVITY * delta;
+
+                direction.z = Number(moveForward) - Number(moveBackward);
+                direction.x = Number(moveRight) - Number(moveLeft);
+                direction.normalize();
+
+                const speed = isSprinting ? CONFIG.SPRINT_SPEED : CONFIG.WALK_SPEED;
+
+                if (moveForward || moveBackward) velocity.z -= direction.z * speed * delta;
+                if (moveLeft || moveRight) velocity.x -= direction.x * speed * delta;
+
+                controls.moveRight(-velocity.x * delta);
+                controls.moveForward(-velocity.z * delta);
+                controls.getObject().position.y += (velocity.y * delta);
+
+                let playerPos = controls.getObject().position;
+
+                // 1. Terrain Collision (Uneven Ground)
+                const groundHeight = getTerrainHeight(playerPos.x, playerPos.z);
+                
+                if (playerPos.y < groundHeight + CONFIG.PLAYER_HEIGHT) {
+                    velocity.y = Math.max(0, velocity.y);
+                    playerPos.y = groundHeight + CONFIG.PLAYER_HEIGHT;
+                    canJump = true;
+                }
+
+                // 2. Object Collision
+                playerBox.setFromCenterAndSize(playerPos, new THREE.Vector3(CONFIG.PLAYER_RADIUS*2, CONFIG.PLAYER_HEIGHT, CONFIG.PLAYER_RADIUS*2));
+
+                for (const obj of collidableObjects) {
+                    if(playerPos.distanceToSquared(obj.position) > 5000) continue; 
+
+                    tempBox.setFromObject(obj);
+                    if (playerBox.intersectsBox(tempBox)) {
+                        const overlap = playerBox.clone().intersect(tempBox);
+                        const size = new THREE.Vector3();
+                        overlap.getSize(size);
+
+                        if (size.x < size.z) {
+                            const dir = playerPos.x > obj.position.x ? 1 : -1;
+                            playerPos.x += (size.x + 0.1) * dir;
+                            velocity.x = 0;
+                        } else {
+                            const dir = playerPos.z > obj.position.z ? 1 : -1;
+                            playerPos.z += (size.z + 0.1) * dir;
+                            velocity.z = 0;
+                        }
+                        playerBox.setFromCenterAndSize(playerPos, new THREE.Vector3(CONFIG.PLAYER_RADIUS*2, CONFIG.PLAYER_HEIGHT, CONFIG.PLAYER_RADIUS*2));
+                    }
+                }
+
+                // --- VISUALS ---
+                
+                const isMoving = Math.abs(velocity.x) > 10 || Math.abs(velocity.z) > 10;
+                let camBobY = 0;
+                let camTiltZ = 0;
+                const weapon = document.getElementById('weapon-container');
+
+                if(isMoving && canJump) {
+                    const freq = isSprinting ? CONFIG.BOB_SPEED * 1.5 : CONFIG.BOB_SPEED;
+                    bobTimer += delta * freq;
+                    
+                    camBobY = Math.sin(bobTimer) * (isSprinting ? 0.7 : 0.35);
+                    
+                    // CSS Sway
+                    const swayX = Math.cos(bobTimer) * 30; 
+                    const swayY = Math.abs(Math.sin(bobTimer)) * 15;
+                    weapon.style.transform = `translate(${swayX}px, ${swayY}px)`;
+
+                    // Tilt logic
+                    if(moveLeft) camTiltZ = 0.03;
+                    else if(moveRight) camTiltZ = -0.03;
+
+                } else {
+                    bobTimer = 0;
+                    weapon.style.transform = `translate(0px, 0px)`;
+                    camTiltZ = 0; 
+                }
+
+                // Apply Visual Tilt (Dampened)
+                // Using rotation.z is safe now because order is YXZ
+                camera.rotation.z = THREE.MathUtils.lerp(camera.rotation.z, camTiltZ, delta * 8);
+
+                // Apply Visual Bob
+                const physicsY = playerPos.y;
+                playerPos.y = physicsY + camBobY;
+
+                renderer.render(scene, camera);
+
+                // Reset for physics
+                playerPos.y = physicsY;
+            } else {
+                renderer.render(scene, camera);
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+</body>
+</html>
