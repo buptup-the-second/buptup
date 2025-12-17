@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Legend of Buptup</title>
+    <style>
+        /* --- FONTS & BASICS --- */
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #050000;
+            overflow: hidden; /* No scrollbars */
+            font-family: 'Cinzel', serif;
+        }
+
+        /* --- THE FIRE CANVAS --- */
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            filter: blur(2px) contrast(1.2); /* Makes fire look organic */
+        }
+
+        /* --- TEXT CONTAINER --- */
+        .myth-container {
+            position: absolute;
+            z-index: 10;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            max-width: 800px;
+            text-align: center;
+            color: #ffebd2; /* Bone/parchment white */
+            pointer-events: none; /* Let clicks pass through to fire */
+        }
+
+        /* --- TYPOGRAPHY & GLOW --- */
+        h1 {
+            font-size: 4rem;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 10px;
+            color: #fff;
+            text-shadow: 
+                0 0 10px #ff8c00,
+                0 0 20px #ff4500,
+                0 0 40px #8b0000;
+            animation: pulse-header 3s infinite alternate;
+        }
+
+        p {
+            font-size: 1.5rem;
+            line-height: 1.8;
+            margin-bottom: 2rem;
+            text-shadow: 2px 2px 4px #000000;
+            opacity: 0; /* Start hidden */
+            transform: translateY(20px);
+        }
+
+        .highlight {
+            color: #ffae00;
+            font-weight: 700;
+        }
+
+        /* --- TEXT REVEAL ANIMATIONS --- */
+        /* Staggered fade-ins for dramatic reading */
+        .stanza-1 { animation: reveal 2s ease-out forwards 1s; }
+        .stanza-2 { animation: reveal 2s ease-out forwards 4s; }
+        .stanza-3 { animation: reveal 2s ease-out forwards 8s; }
+        .final-line { 
+            animation: reveal 3s ease-out forwards 12s; 
+            font-size: 2rem;
+            font-weight: 900;
+            color: #ff6a00;
+            letter-spacing: 2px;
+        }
+
+        @keyframes reveal {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+                text-shadow: 0 0 15px rgba(255, 140, 0, 0.6);
+            }
+        }
+
+        @keyframes pulse-header {
+            from { text-shadow: 0 0 10px #ff8c00, 0 0 20px #ff4500; }
+            to { text-shadow: 0 0 20px #ffae00, 0 0 40px #ff0000, 0 0 60px #8b0000; }
+        }
+
+        /* Vignette overlay to darken edges */
+        .vignette {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            background: radial-gradient(circle, transparent 40%, #000000 95%);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="vignette"></div>
+
+    <div class="myth-container">
+        <h1>Buptup</h1>
+        
+        <p class="stanza-1">
+            Released into society from deep in the woods. He would terrorize cryptids and monsters alike. Not the tallest or smartest, but generally a person. <span class="highlight">A homunculus, a man.</span>
+        </p>
+
+        <p class="stanza-2">
+            He delights in <span class="highlight">Indian food</span> and loves zombies and anything alike. He does whatever; from meeting the schizophrenic bug-eating guy in the woods to dancing around fires till it rained.
+        </p>
+
+        <p class="stanza-3">
+            Building structures and attacking anything that threatened those structures.
+        </p>
+
+        <p class="final-line">
+            He is Bup, and he is here.
+        </p>
+    </div>
+
+    <canvas id="fireCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('fireCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Resize canvas to full screen
+        let w, h;
+        function resize() {
+            w = canvas.width = window.innerWidth;
+            h = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Particle System
+        const particles = [];
+        const particleCount = 400; // Increase for more fire
+
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                // Start at the bottom, somewhat centered but spread out
+                this.x = Math.random() * w;
+                this.y = h + Math.random() * 50; // Start slightly below screen
+                this.vx = (Math.random() - 0.5) * 3; // Horizontal drift
+                this.vy = -(Math.random() * 4 + 2); // Upward speed
+                this.size = Math.random() * 30 + 10;
+                this.life = Math.random() * 0.5 + 0.5; // Opacity/Life
+                this.decay = Math.random() * 0.01 + 0.005;
+                
+                // Color variations (Yellow -> Orange -> Red)
+                const colors = ['255, 200, 0', '255, 100, 0', '255, 50, 0', '200, 0, 0'];
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.size -= 0.1; // Shrink as it rises
+                this.life -= this.decay;
+
+                // Add some "wind" or turbulence
+                this.vx += (Math.random() - 0.5) * 0.1;
+
+                // Reset if dead
+                if (this.life <= 0 || this.size <= 0) {
+                    this.reset();
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                // Create a glow effect for each particle
+                let gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);
+                gradient.addColorStop(0, `rgba(${this.color}, ${this.life})`);
+                gradient.addColorStop(1, `rgba(${this.color}, 0)`);
+                
+                ctx.fillStyle = gradient;
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Initialize particles
+        for (let i = 0; i < particleCount; i++) {
+            particles.push(new Particle());
+        }
+
+        // Animation Loop
+        function animate() {
+            // Clear screen with a slight fade for trail effect
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.fillRect(0, 0, w, h);
+
+            // Use lighter blend mode for fire intensity
+            ctx.globalCompositeOperation = 'lighter';
+
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
