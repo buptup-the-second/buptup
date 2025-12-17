@@ -3,142 +3,347 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculator</title>
+    <title>Win7 Aero Calc Ultimate</title>
     <style>
+        /* --- CORE SETTINGS --- */
+        :root {
+            --glass-bg: rgba(242, 249, 255, 0.35);
+            --glass-border: rgba(255, 255, 255, 0.6);
+            --glass-shine: linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.1) 40%, rgba(255,255,255,0) 100%);
+            --btn-base: linear-gradient(180deg, #f0f0f0 0%, #dcdcdc 49%, #c8c8c8 50%, #dcdcdc 100%);
+            --btn-hover: linear-gradient(180deg, #eaf6fd 0%, #d9f0fc 49%, #bee6fd 50%, #a7d9f5 100%);
+            --btn-active: linear-gradient(180deg, #cde5f4 0%, #8bc3eb 100%);
+            --text-glow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
         body {
+            background: url('https://images.unsplash.com/photo-1493246507139-91e8fad9978e?ixlib=rb-4.0.3&auto=format&fit=crop&w=2940&q=80') no-repeat center center fixed;
+            background-size: cover;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            background-color: #f0f0f0;
             margin: 0;
-            font-family: Arial, sans-serif;
+            overflow: hidden;
         }
-        .calculator {
-            border: 1px solid #ccc;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            background-color: #fff;
-            padding: 20px;
+
+        /* --- THE WINDOW FRAME (AERO GLASS) --- */
+        .window {
+            width: 380px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-radius: 8px;
+            box-shadow: 
+                inset 0 1px 0 rgba(255,255,255,0.9),
+                inset 0 0 5px rgba(255,255,255,0.5),
+                0 15px 35px rgba(0,0,0,0.5),
+                0 0 0 1px rgba(255,255,255,0.3);
+            border: 1px solid rgba(0,0,0,0.2);
+            position: relative;
+            overflow: hidden;
+            animation: float 6s ease-in-out infinite;
         }
-        .display {
-            font-size: 2em;
-            margin-bottom: 20px;
-            text-align: right;
-            border: 1px solid #ccc;
+
+        /* The "Shine" reflection on top */
+        .window::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 150px;
+            background: var(--glass-shine);
+            border-radius: 8px 8px 120% 120%;
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0.6;
+        }
+
+        /* --- TITLE BAR --- */
+        .title-bar {
+            height: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 10px;
+            color: #333;
+            text-shadow: 0 0 5px white;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: default;
+            position: relative;
+            z-index: 5;
+        }
+
+        .controls {
+            display: flex;
+            gap: 5px;
+        }
+
+        .control-btn {
+            width: 24px;
+            height: 18px;
+            border: 1px solid rgba(255,255,255,0.5);
+            border-radius: 3px;
+            background: rgba(255,255,255,0.3);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+            position: relative;
+        }
+
+        .control-btn.close:hover {
+            background: radial-gradient(circle at center, #e04343, #991818);
+            border-color: #7a1515;
+            box-shadow: 0 0 5px #ff6b6b;
+        }
+
+        /* --- DISPLAY AREA --- */
+        .display-container {
+            margin: 10px 15px;
+            background: linear-gradient(180deg, #eef 0%, #fff 100%);
+            border: 1px solid #889;
+            border-radius: 3px;
             padding: 10px;
-            border-radius: 5px;
-            background-color: #f9f9f9;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
+            text-align: right;
+            position: relative;
+            z-index: 2;
         }
-        .buttons {
+
+        #history {
+            color: #777;
+            font-size: 12px;
+            height: 15px;
+            margin-bottom: 2px;
+        }
+
+        #display {
+            font-size: 32px;
+            font-family: 'Consolas', monospace;
+            color: #222;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        /* --- KEYPAD GRID --- */
+        .keys {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+            padding: 15px;
+            position: relative;
+            z-index: 2;
         }
-        .buttons button {
-            padding: 20px;
-            font-size: 1.5em;
-            border: none;
-            border-radius: 5px;
+
+        /* --- BUTTON STYLING (The 3D Gel Look) --- */
+        button {
+            height: 45px;
+            border: 1px solid #707070;
+            border-radius: 3px;
+            background: var(--btn-base);
+            font-size: 16px;
+            font-family: 'Segoe UI', sans-serif;
+            color: #1e1e1e;
             cursor: pointer;
-            background-color: #e0e0e0;
-        }
-        .buttons button:hover {
-            background-color: #d0d0d0;
-        }
-        .buttons button.operator {
-            background-color: #f9a825;
-            color: #fff;
-        }
-        .buttons button.operator:hover {
-            background-color: #f57f17;
-        }
-    </style>
-</head>
-<body>
-    <div class="calculator">
-        <div class="display" id="display">0</div>
-        <div class="buttons">
-            <button onclick="clearDisplay()">C</button>
-            <button onclick="appendToDisplay('/')">/</button>
-            <button onclick="appendToDisplay('*')">*</button>
-            <button onclick="appendToDisplay('-')">-</button>
-            <button onclick="appendToDisplay('7')">7</button>
-            <button onclick="appendToDisplay('8')">8</button>
-            <button onclick="appendToDisplay('9')">9</button>
-            <button onclick="appendToDisplay('+')">+</button>
-            <button onclick="appendToDisplay('4')">4</button>
-            <button onclick="appendToDisplay('5')">5</button>
-            <button onclick="appendToDisplay('6')">6</button>
-            <button onclick="calculateResult()">=</button>
-            <button onclick="appendToDisplay('1')">1</button>
-            <button onclick="appendToDisplay('2')">2</button>
-            <button onclick="appendToDisplay('3')">3</button>
-            <button onclick="appendToDisplay('0')">0</button>
-        </div>
-    </div>
-    <script>
-        const display = document.getElementById('display');
-
-        function clearDisplay() {
-            display.innerText = '0';
+            box-shadow: 
+                inset 0 1px 0 rgba(255,255,255,1),
+                0 1px 2px rgba(0,0,0,0.2);
+            transition: all 0.1s;
         }
 
-        function appendToDisplay(value) {
-            if (display.innerText === '0') {
-                display.innerText = value;
-            } else {
-                display.innerText += value;
-            }
+        button:hover {
+            background: var(--btn-hover);
+            border-color: #3c7fb1;
+            box-shadow: 
+                inset 0 1px 0 rgba(255,255,255,0.8),
+                0 0 3px rgba(60, 127, 177, 0.5);
         }
 
-        function calculateResult() {
-            try {
-                display.innerText = eval(display.innerText);
-            } catch {
-                display.innerText = 'Error';
-            }
+        button:active {
+            background: var(--btn-active);
+            box-shadow: inset 0 2px 3px rgba(0,0,0,0.2);
+            transform: translateY(1px);
         }
-    </script>
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Custom Cursor Example</title>
-    <style>
-        /* Hide the default cursor */
-        * {
-            cursor: none !important;
-            user-select: none; /* Disable text selection */
+
+        /* Specific Button Colors */
+        .btn-equal {
+            grid-row: span 2;
+            height: 100%;
+            background: linear-gradient(180deg, #f0f0f0 0%, #e3e3e3 100%);
+            font-weight: bold;
+            font-size: 22px;
         }
         
-        /* Disable dragging and selecting images */
-        img {
-            -webkit-user-drag: none; 
-            user-drag: none;
-            pointer-events: none; /* Prevent interaction with the image */
+        .btn-op {
+            color: #003399;
         }
+
+        .btn-sci {
+            font-size: 13px;
+            font-weight: 600;
+            font-style: italic;
+            color: #444;
+        }
+        
+        .btn-clear {
+            color: #c00;
+        }
+
+        /* --- ANIMATIONS --- */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+            100% { transform: translateY(0px); }
+        }
+
     </style>
 </head>
 <body>
+
+    <div class="window">
+        <div class="title-bar">
+            <span>🧮 Calculator Ultimate</span>
+            <div class="controls">
+                <div class="control-btn minimize"></div>
+                <div class="control-btn maximize"></div>
+                <div class="control-btn close"></div>
+            </div>
+        </div>
+
+        <div class="display-container">
+            <div id="history"></div>
+            <div id="display">0</div>
+        </div>
+
+        <div class="keys">
+            <button class="btn-sci" onclick="appendFunc('sin')">sin</button>
+            <button class="btn-sci" onclick="appendFunc('cos')">cos</button>
+            <button class="btn-sci" onclick="appendFunc('tan')">tan</button>
+            <button class="btn-sci" onclick="appendFunc('log')">log</button>
+            <button class="btn-clear" onclick="clearDisplay()">C</button>
+
+            <button class="btn-sci" onclick="appendFunc('√')">√</button>
+            <button class="btn-sci" onclick="appendFunc('^')">xʸ</button>
+            <button onclick="appendChar('(')">(</button>
+            <button onclick="appendChar(')')">)</button>
+            <button class="btn-op" onclick="appendChar('/')">÷</button>
+
+            <button onclick="appendChar('7')">7</button>
+            <button onclick="appendChar('8')">8</button>
+            <button onclick="appendChar('9')">9</button>
+            <button class="btn-op" onclick="appendChar('*')">×</button>
+            <button class="btn-op" onclick="deleteChar()">←</button>
+
+            <button onclick="appendChar('4')">4</button>
+            <button onclick="appendChar('5')">5</button>
+            <button onclick="appendChar('6')">6</button>
+            <button class="btn-op" onclick="appendChar('-')">-</button>
+            <button class="btn-equal" onclick="calculate()">=</button>
+
+            <button onclick="appendChar('1')">1</button>
+            <button onclick="appendChar('2')">2</button>
+            <button onclick="appendChar('3')">3</button>
+            <button class="btn-op" onclick="appendChar('+')">+</button>
+            <button onclick="appendChar('0')" style="grid-column: span 2; width: 100%">0</button>
+            <button onclick="appendChar('.')">.</button>
+            <button class="btn-sci" onclick="appendChar('π')">π</button>
+        </div>
+    </div>
+
     <script>
-        // Create a new div for the custom cursor
-        const customCursor = document.createElement('div');
-        customCursor.style.position = 'fixed';
-        customCursor.style.top = '0';
-        customCursor.style.left = '0';
-        customCursor.style.pointerEvents = 'none'; // Ensure the cursor doesn't interfere with mouse events
-        customCursor.innerHTML = '<img src="hand.png" style="width: 30px; height: 30px;"/>';
+        const display = document.getElementById('display');
+        const history = document.getElementById('history');
+        let currentInput = "";
+        
+        function updateDisplay() {
+            display.innerText = currentInput || "0";
+            // Auto scroll to end
+            display.scrollLeft = display.scrollWidth; 
+        }
 
-        // Append the custom cursor to the body
-        document.body.appendChild(customCursor);
+        function appendChar(char) {
+            if (currentInput === "Error") currentInput = "";
+            
+            // Prevent multiple operators
+            const lastChar = currentInput.slice(-1);
+            const operators = ['+', '-', '*', '/', '.'];
+            
+            if (operators.includes(lastChar) && operators.includes(char)) {
+                currentInput = currentInput.slice(0, -1) + char;
+            } else {
+                currentInput += char;
+            }
+            updateDisplay();
+        }
 
-        // Update the custom cursor position based on mouse movement
-        document.addEventListener('mousemove', (e) => {
-            customCursor.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+        function appendFunc(func) {
+            if (currentInput === "Error") currentInput = "";
+            if (func === '√') currentInput += 'sqrt(';
+            else if (func === '^') currentInput += '**';
+            else currentInput += func + '(';
+            updateDisplay();
+        }
+
+        function deleteChar() {
+            if (currentInput === "Error") {
+                currentInput = "";
+            } else {
+                currentInput = currentInput.toString().slice(0, -1);
+            }
+            updateDisplay();
+        }
+
+        function clearDisplay() {
+            currentInput = "";
+            history.innerText = "";
+            updateDisplay();
+        }
+
+        function calculate() {
+            if (!currentInput) return;
+
+            // Save history
+            history.innerText = currentInput + " =";
+
+            // Sanitize inputs for math conversion
+            let expression = currentInput
+                .replace(/×/g, '*')
+                .replace(/÷/g, '/')
+                .replace(/π/g, 'Math.PI')
+                .replace(/sin/g, 'Math.sin')
+                .replace(/cos/g, 'Math.cos')
+                .replace(/tan/g, 'Math.tan')
+                .replace(/log/g, 'Math.log10')
+                .replace(/sqrt/g, 'Math.sqrt');
+
+            try {
+                // Evaluate
+                // Note: eval is used for simplicity in this frontend demo. 
+                // In a production app, use a math parser library.
+                let result = eval(expression);
+                
+                // Format result (max 8 decimals)
+                if (!Number.isInteger(result)) {
+                    result = parseFloat(result.toFixed(8));
+                }
+                
+                currentInput = result.toString();
+            } catch (e) {
+                currentInput = "Error";
+            }
+            updateDisplay();
+        }
+
+        // Add Keyboard Support
+        document.addEventListener('keydown', (e) => {
+            const key = e.key;
+            if (!isNaN(key) || key === '.') appendChar(key);
+            if (key === '+') appendChar('+');
+            if (key === '-') appendChar('-');
+            if (key === '*') appendChar('*');
+            if (key === '/') appendChar('/');
+            if (key === 'Enter') calculate();
+            if (key === 'Backspace') deleteChar();
+            if (key === 'Escape') clearDisplay();
         });
     </script>
 </body>
