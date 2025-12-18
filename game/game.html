@@ -92,7 +92,7 @@
         { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
     </script>
 
-    <script type="module">
+<script type="module">
         import * as THREE from 'three';
         import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
@@ -101,12 +101,13 @@
             PLAYER_HEIGHT: 18, 
             PLAYER_RADIUS: 3.5,
             GRAVITY: 800.0,
-            JUMP_FORCE: 200.0,
+            JUMP_FORCE: 300.0,
             WALK_SPEED: 450.0,
             SPRINT_SPEED: 900.0,
-            TREE_COUNT: 150,
-            ROCK_COUNT: 80,
-            WORLD_SIZE: 4000,
+            
+            TREE_COUNT: 600,     
+            ROCK_COUNT: 150,     
+            WORLD_SIZE: 10000,   
             BOB_SPEED: 12
         };
 
@@ -119,7 +120,6 @@
         let canJump = false;
         let isSprinting = false;
 
-        // Visuals
         let prevTime = performance.now();
         let bobTimer = 0;
         
@@ -143,14 +143,10 @@
             // 2. Scene
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB);
-            scene.fog = new THREE.FogExp2(0x8cb6c9, 0.002);
+            scene.fog = new THREE.FogExp2(0x8cb6c9, 0.0015);
 
-            // 3. Camera & Controls
-            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 3000);
-            
-            // CRITICAL FIX: Change rotation order.
-            // 'YXZ' means Yaw (Y) applies first, then Pitch (X), then Roll (Z).
-            // This prevents the "twist" when looking down and tilting.
+            // 3. Camera
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 4000);
             camera.rotation.order = 'YXZ';
 
             controls = new PointerLockControls(camera, document.body);
@@ -174,15 +170,16 @@
             const sun = new THREE.DirectionalLight(0xffeebb, 1.5);
             sun.position.set(150, 300, 100);
             sun.castShadow = true;
-            sun.shadow.mapSize.set(2048, 2048);
-            sun.shadow.camera.left = -1000; sun.shadow.camera.right = 1000;
-            sun.shadow.camera.top = 1000; sun.shadow.camera.bottom = -1000;
+            sun.shadow.mapSize.set(4096, 4096);
+            sun.shadow.camera.left = -2000; sun.shadow.camera.right = 2000;
+            sun.shadow.camera.top = 2000; sun.shadow.camera.bottom = -2000;
             scene.add(sun);
 
             // 5. World Generation
-            generateTerrain();
+            generateTerrain(); 
             generateRocks();
-            generateTrees();
+            generateTrees();   
+            generateCabin();   // Updated detailed cabin
 
             // 6. Listeners
             setupInputs();
@@ -214,21 +211,18 @@
             document.addEventListener('keyup', onKeyUp);
         }
 
-        // --- MATH & NOISE HELPERS ---
-
-        // Simple function to get a consistent height for the ground
         function getTerrainHeight(x, z) {
-            // Combine a few sine waves to create rolling hills
-            const huge = Math.sin(x * 0.002) * Math.cos(z * 0.002) * 40;
-            const medium = Math.sin(x * 0.01 + 5) * Math.cos(z * 0.01) * 10;
+            // Large rolling hills
+            const huge = Math.sin(x * 0.001) * Math.cos(z * 0.001) * 80;
+            const valley = Math.sin(x * 0.005 + 2) * Math.cos(z * 0.005) * 20;
             const small = Math.sin(x * 0.03) * Math.cos(z * 0.03 + 2) * 2;
-            return Math.max(-20, huge + medium + small);
+            return Math.max(-100, huge + valley + small);
         }
 
         // --- WORLD GENERATION ---
 
         function generateTerrain() {
-            // Create texture
+            // 1. Procedural Canvas Texture
             const canvas = document.createElement('canvas');
             canvas.width = 512; canvas.height = 512;
             const ctx = canvas.getContext('2d');
@@ -238,7 +232,7 @@
             ctx.fillRect(0,0,512,512);
 
             // Grass noise
-            for(let i=0; i<10000; i++) {
+            for(let i=0; i<15000; i++) {
                 ctx.fillStyle = Math.random() > 0.5 ? '#4b6b1f' : '#28380e';
                 ctx.fillRect(Math.random()*512, Math.random()*512, 2, 2);
             }
@@ -246,7 +240,7 @@
             const tex = new THREE.CanvasTexture(canvas);
             tex.wrapS = THREE.RepeatWrapping;
             tex.wrapT = THREE.RepeatWrapping;
-            tex.repeat.set(60, 60); 
+            tex.repeat.set(100, 100); 
             tex.minFilter = THREE.LinearMipMapLinearFilter;
             tex.anisotropy = 16;
 
@@ -256,19 +250,15 @@
                 color: 0xaaaaaa 
             });
 
-            // Create Segmented Plane
-            const segments = 128;
+            // 2. Geometry
+            const segments = 128; 
             const geo = new THREE.PlaneGeometry(CONFIG.WORLD_SIZE, CONFIG.WORLD_SIZE, segments, segments);
-
-            // Apply Heightmap to Vertices
             const posAttribute = geo.attributes.position;
             const vertex = new THREE.Vector3();
 
             for (let i = 0; i < posAttribute.count; i++) {
                 vertex.fromBufferAttribute(posAttribute, i);
-                // In PlaneGeometry, Z is 0. We usually rotate X by -90, so Z becomes Y (Height).
-                // But here we affect the 'local' Z which becomes World Y.
-                const h = getTerrainHeight(vertex.x, vertex.y); // Note: Plane is X/Y, we map Y to World Z
+                const h = getTerrainHeight(vertex.x, vertex.y);
                 posAttribute.setZ(i, h);
             }
 
@@ -280,26 +270,123 @@
             scene.add(terrain);
         }
 
+        function generateCabin() {
+            const cabinX = 80;
+            const cabinZ = -60;
+            const groundH = getTerrainHeight(cabinX, cabinZ);
+
+            // Larger Dimensions for interior
+            const W = 90; // Width (X axis)
+            const D = 70; // Depth (Z axis)
+            const H = 45; // Wall Height
+            const THICK = 3; // Wall thickness
+
+            const group = new THREE.Group();
+            group.position.set(cabinX, groundH, cabinZ);
+
+            // Materials
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9, name: 'wood' });
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x4d3326, roughness: 1.0, name: 'floor' });
+            const roofMat = new THREE.MeshStandardMaterial({ color: 0x362312, roughness: 1.0, name: 'roof' });
+            const glassMat = new THREE.MeshStandardMaterial({ color: 0xadd8e6, transparent: true, opacity: 0.3, roughness: 0.1, metalness: 0.8, name: 'glass' });
+            const frameMat = new THREE.MeshStandardMaterial({ color: 0x2a1a10, roughness: 0.8, name: 'frame' });
+
+            // Helper to create parts and physics simultaneously
+            function createPart(geo, mat, x, y, z, isPhysics = true) {
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(x, y, z);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                group.add(mesh);
+
+                if (isPhysics) {
+                    // Create collision box in world space
+                    const worldPos = new THREE.Vector3(cabinX + x, groundH + y, cabinZ + z);
+                    geo.computeBoundingBox();
+                    const size = new THREE.Vector3();
+                    geo.boundingBox.getSize(size);
+                    
+                    const boundary = new THREE.Mesh(new THREE.BoxGeometry(size.x, size.y, size.z));
+                    boundary.position.copy(worldPos);
+                    boundary.visible = false;
+                    scene.add(boundary);
+                    collidableObjects.push(boundary);
+                }
+                return mesh;
+            }
+
+            // 1. Floor
+            createPart(new THREE.BoxGeometry(W, THICK, D), floorMat, 0, THICK/2, 0, true);
+
+            // 2. Walls (Constructed from pieces to allow holes)
+            
+            // Back Wall (+Z) - Solid
+            createPart(new THREE.BoxGeometry(W, H, THICK), woodMat, 0, H/2 + THICK, D/2 - THICK/2);
+
+            // Front Wall (-Z) with Door gap
+            const doorW = 25, doorH = 35;
+            // Left panel
+            createPart(new THREE.BoxGeometry((W-doorW)/2, H, THICK), woodMat, -(W/2 - (W-doorW)/4), H/2 + THICK, -D/2 + THICK/2);
+            // Right panel
+            createPart(new THREE.BoxGeometry((W-doorW)/2, H, THICK), woodMat, (W/2 - (W-doorW)/4), H/2 + THICK, -D/2 + THICK/2);
+            // Top panel (above door)
+            createPart(new THREE.BoxGeometry(doorW, H - doorH, THICK), woodMat, 0, doorH + (H-doorH)/2 + THICK, -D/2 + THICK/2);
+        
+            // Side Walls (X axes) with Window gaps
+            const winW = 30, winH = 20, winY = 25; // Center Y of window
+
+            for(const side of [-1, 1]) { // Left and Right sides
+                const xPos = side * (W/2 - THICK/2);
+                // Bottom panel
+                createPart(new THREE.BoxGeometry(THICK, winY - winH/2, D), woodMat, xPos, (winY - winH/2)/2 + THICK, 0);
+                // Top panel
+                createPart(new THREE.BoxGeometry(THICK, H - (winY + winH/2), D), woodMat, xPos, (winY + winH/2) + (H - (winY + winH/2))/2 + THICK, 0);
+                // Side pillars around window
+                const pillarD = (D - winW) / 2;
+                createPart(new THREE.BoxGeometry(THICK, winH, pillarD), woodMat, xPos, winY + THICK, -D/2 + pillarD/2);
+                createPart(new THREE.BoxGeometry(THICK, winH, pillarD), woodMat, xPos, winY + THICK, D/2 - pillarD/2);
+
+                // Window Glass & Frame
+                createPart(new THREE.BoxGeometry(THICK/2, winH, winW), glassMat, xPos, winY + THICK, 0, false);
+                createPart(new THREE.BoxGeometry(THICK+1, winH + 2, winW + 2), frameMat, xPos, winY + THICK, 0, false);
+            }
+
+            // 3. Roof (Large 4-sided cone resting on top)
+            const roofHeight = 25;
+            // Scale cone to fit square base roughly
+            const roofScale = Math.sqrt((W*W)/2) + 10; 
+            const roof = new THREE.Mesh(new THREE.ConeGeometry(1, 1, 4), roofMat);
+            roof.position.set(0, H + roofHeight/2 + THICK, 0);
+            roof.rotation.y = Math.PI / 4; 
+            roof.scale.set(roofScale, roofHeight, roofScale);
+            roof.castShadow = true;
+            group.add(roof);
+
+            scene.add(group);
+        }
+
         function generateRocks() {
-            const rockMat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.8, flatShading: true });
-            const rockGeo = new THREE.DodecahedronGeometry(1, 0); // Low poly look
+            const rockMat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.9, flatShading: true });
+            const rockGeo = new THREE.DodecahedronGeometry(1, 0); 
 
             for(let i=0; i<CONFIG.ROCK_COUNT; i++) {
-                const x = (Math.random() - 0.5) * (CONFIG.WORLD_SIZE - 100);
-                const z = (Math.random() - 0.5) * (CONFIG.WORLD_SIZE - 100);
+                const x = (Math.random() - 0.5) * (CONFIG.WORLD_SIZE * 0.8);
+                const z = (Math.random() - 0.5) * (CONFIG.WORLD_SIZE * 0.8);
 
-                const size = 2 + Math.random() * 5;
+                // Increased safe zone for larger cabin
+                if (Math.abs(x - 80) < 80 && Math.abs(z + 60) < 80) continue;
+
                 const h = getTerrainHeight(x, z);
-
-                const rock = new THREE.Mesh(rockGeo, rockMat);
-                rock.position.set(x, h + (size*0.3), z); // Embed slightly in ground
-                rock.scale.set(size, size * 0.7, size);
+                const size = 3 + Math.random() * 8;
                 
+                const rock = new THREE.Mesh(rockGeo, rockMat);
+                rock.position.set(x, h + (size*0.2), z);
+                rock.scale.set(size, size * 0.8, size);
                 rock.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
                 rock.castShadow = true;
                 rock.receiveShadow = true;
 
-                // Collision Box
+                // Physics
                 const boundary = new THREE.Mesh(new THREE.BoxGeometry(size*1.5, size*2, size*1.5));
                 boundary.position.copy(rock.position);
                 boundary.visible = false;
@@ -317,39 +404,51 @@
             const geomCone = new THREE.ConeGeometry(1, 1, 6);
 
             for (let i = 0; i < CONFIG.TREE_COUNT; i++) {
-                const x = (Math.random() - 0.5) * (CONFIG.WORLD_SIZE - 200);
-                const z = (Math.random() - 0.5) * (CONFIG.WORLD_SIZE - 200);
+                const x = (Math.random() - 0.5) * (CONFIG.WORLD_SIZE * 0.8);
+                const z = (Math.random() - 0.5) * (CONFIG.WORLD_SIZE * 0.8);
                 
+                // Increased safe zone for larger cabin
+                if (Math.abs(x - 80) < 80 && Math.abs(z + 60) < 80) continue;
+
                 const h = getTerrainHeight(x, z);
                 
-                // Don't spawn underwater if we had water, or on steep slopes (simplified)
-                if(Math.abs(x) < 50 && Math.abs(z) < 50) continue;
-
-                const scale = 5 + Math.random() * 4; 
+                const scale = 5 + Math.random() * 5; 
                 const trunkHeight = 10 * scale;
 
+                // --- FIX: Tree Floating ---
+                const sinkAmount = scale * 1.5; 
+
                 const trunk = new THREE.Mesh(geomTrunk, trunkMat);
-                trunk.position.set(x, h + (trunkHeight / 2), z);
-                trunk.scale.set(scale, trunkHeight, scale);
+                
+                trunk.position.set(x, h + (trunkHeight / 2) - sinkAmount, z);
+                trunk.scale.set(scale, trunkHeight + sinkAmount, scale); 
+                
                 trunk.castShadow = true;
                 trunk.receiveShadow = true;
 
                 // Leaves
-                const layers = 4 + Math.floor(Math.random() * 3); 
+                const layers = 3 + Math.floor(Math.random() * 3); 
                 for(let L=0; L<layers; L++) {
                     const widthRatio = 1 - (L / layers); 
-                    const coneRadius = (4 * scale) * widthRatio;
+                    const coneRadius = (4.5 * scale) * widthRatio;
                     const leaves = new THREE.Mesh(geomCone, leafMat);
                     
-                    leaves.scale.set(coneRadius/scale, (4 * scale)/trunkHeight, coneRadius/scale);
-                    leaves.position.y = (0.4) + (L * 0.15); 
+                    const parentYScale = trunk.scale.y; 
+                    
+                    leaves.scale.set(
+                        coneRadius / scale, 
+                        ((5 * scale) / parentYScale), 
+                        coneRadius / scale
+                    );
+                    
+                    leaves.position.y = 0.5 + (L * 0.15); 
                     leaves.castShadow = true;
                     trunk.add(leaves);
                 }
 
                 // Physics
                 const boundary = new THREE.Mesh(new THREE.BoxGeometry(2*scale, trunkHeight, 2*scale));
-                boundary.position.copy(trunk.position);
+                boundary.position.set(x, h + (trunkHeight/2), z); 
                 boundary.visible = false;
                 scene.add(boundary);
                 collidableObjects.push(boundary);
@@ -375,7 +474,6 @@
 
             if (controls.isLocked) {
                 // --- PHYSICS ---
-                
                 velocity.x -= velocity.x * 8.0 * delta;
                 velocity.z -= velocity.z * 8.0 * delta;
                 velocity.y -= CONFIG.GRAVITY * delta;
@@ -395,7 +493,7 @@
 
                 let playerPos = controls.getObject().position;
 
-                // 1. Terrain Collision (Uneven Ground)
+                // 1. Terrain Collision
                 const groundHeight = getTerrainHeight(playerPos.x, playerPos.z);
                 
                 if (playerPos.y < groundHeight + CONFIG.PLAYER_HEIGHT) {
@@ -408,7 +506,8 @@
                 playerBox.setFromCenterAndSize(playerPos, new THREE.Vector3(CONFIG.PLAYER_RADIUS*2, CONFIG.PLAYER_HEIGHT, CONFIG.PLAYER_RADIUS*2));
 
                 for (const obj of collidableObjects) {
-                    if(playerPos.distanceToSquared(obj.position) > 5000) continue; 
+                    // Increased check distance for larger objects
+                    if(Math.abs(playerPos.x - obj.position.x) > 60 || Math.abs(playerPos.z - obj.position.z) > 60) continue;
 
                     tempBox.setFromObject(obj);
                     if (playerBox.intersectsBox(tempBox)) {
@@ -416,7 +515,14 @@
                         const size = new THREE.Vector3();
                         overlap.getSize(size);
 
-                        if (size.x < size.z) {
+                        // Favor pushing horizontally
+                        if (size.y < size.x && size.y < size.z) {
+                             // Push up/down (less likely in this setup but possible on edges)
+                             const dir = playerPos.y > obj.position.y ? 1 : -1;
+                             playerPos.y += (size.y + 0.1) * dir;
+                             velocity.y = 0;
+                        }
+                        else if (size.x < size.z) {
                             const dir = playerPos.x > obj.position.x ? 1 : -1;
                             playerPos.x += (size.x + 0.1) * dir;
                             velocity.x = 0;
@@ -430,7 +536,6 @@
                 }
 
                 // --- VISUALS ---
-                
                 const isMoving = Math.abs(velocity.x) > 10 || Math.abs(velocity.z) > 10;
                 let camBobY = 0;
                 let camTiltZ = 0;
@@ -439,35 +544,25 @@
                 if(isMoving && canJump) {
                     const freq = isSprinting ? CONFIG.BOB_SPEED * 1.5 : CONFIG.BOB_SPEED;
                     bobTimer += delta * freq;
-                    
                     camBobY = Math.sin(bobTimer) * (isSprinting ? 0.7 : 0.35);
-                    
-                    // CSS Sway
                     const swayX = Math.cos(bobTimer) * 30; 
                     const swayY = Math.abs(Math.sin(bobTimer)) * 15;
                     weapon.style.transform = `translate(${swayX}px, ${swayY}px)`;
-
-                    // Tilt logic
                     if(moveLeft) camTiltZ = 0.03;
                     else if(moveRight) camTiltZ = -0.03;
-
                 } else {
                     bobTimer = 0;
                     weapon.style.transform = `translate(0px, 0px)`;
                     camTiltZ = 0; 
                 }
 
-                // Apply Visual Tilt (Dampened)
-                // Using rotation.z is safe now because order is YXZ
                 camera.rotation.z = THREE.MathUtils.lerp(camera.rotation.z, camTiltZ, delta * 8);
 
-                // Apply Visual Bob
                 const physicsY = playerPos.y;
                 playerPos.y = physicsY + camBobY;
 
                 renderer.render(scene, camera);
 
-                // Reset for physics
                 playerPos.y = physicsY;
             } else {
                 renderer.render(scene, camera);
