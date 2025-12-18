@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARCHIVE_ENTRY: BUPTUP</title>
+    <style>
+        /* --- CORE SETTINGS --- */
+        :root {
+            --bg-color: #050505;
+            --text-color: #e0e0e0;
+            --scanline-color: rgba(18, 16, 16, 0.5);
+            --glitch-color: #ffffff;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            text-transform: uppercase;
+        }
+
+        /* --- CRT OVERLAY EFFECTS --- */
+        .crt-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.25) 50%
+            ), linear-gradient(
+                90deg, 
+                rgba(255, 0, 0, 0.06), 
+                rgba(0, 255, 0, 0.02), 
+                rgba(0, 0, 255, 0.06)
+            );
+            background-size: 100% 4px, 6px 100%;
+            pointer-events: none;
+            z-index: 999;
+            animation: flicker 0.15s infinite;
+        }
+
+        @keyframes flicker {
+            0% { opacity: 0.9; }
+            5% { opacity: 0.85; }
+            10% { opacity: 0.9; }
+            15% { opacity: 0.95; }
+            100% { opacity: 0.9; }
+        }
+
+        /* --- LAYOUT --- */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            border-left: 1px solid #333;
+            border-right: 1px solid #333;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* --- TYPOGRAPHY --- */
+        h1, h2, h3 {
+            font-weight: normal;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--text-color);
+            padding-bottom: 10px;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        p {
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .classification {
+            border: 1px solid var(--text-color);
+            padding: 5px 10px;
+            display: inline-block;
+            margin-bottom: 30px;
+            font-weight: bold;
+            background: #fff;
+            color: #000;
+        }
+
+        /* --- IMAGES --- */
+        .img-wrapper {
+            width: 100%;
+            margin-bottom: 40px;
+            border: 1px solid #333;
+            padding: 10px;
+            background-color: #000;
+        }
+
+        img {
+            width: 100%;
+            height: auto;
+            display: block;
+            /* The Analog Horror Filter Stack */
+            filter: grayscale(100%) contrast(150%) brightness(80%) sepia(20%);
+            transition: filter 0.3s;
+        }
+
+        img:hover {
+            filter: grayscale(100%) contrast(200%) brightness(70%) invert(100%);
+        }
+
+        .caption {
+            font-size: 0.7rem;
+            margin-top: 5px;
+            opacity: 0.7;
+            text-align: right;
+        }
+
+        /* --- SECTIONS --- */
+        .data-log {
+            margin-top: 60px;
+            border: 1px dashed #444;
+            padding: 20px;
+        }
+
+        /* --- GLITCH TEXT ANIMATION --- */
+        .glitch {
+            position: relative;
+        }
+        
+        .redacted {
+            background-color: var(--text-color);
+            color: var(--text-color);
+            cursor: help;
+        }
+        
+        .redacted:hover {
+            background-color: transparent;
+            color: var(--text-color);
+        }
+
+        footer {
+            margin-top: 100px;
+            font-size: 0.6rem;
+            text-align: center;
+            opacity: 0.4;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="crt-overlay"></div>
+
+    <div class="container">
+        <header>
+            <div class="classification">CONFIDENTIAL // LEVEL 4 CLEARANCE</div>
+            <h1>ARCHIVE OF THE HOMUNCULUS BUPTUP</h1>
+            <p><strong>CASE ID:</strong> 882-B<br>
+            <strong>STATUS:</strong> AT LARGE<br>
+            <strong>DATE:</strong> 19██-██-██</p>
+        </header>
+
+        <section id="profile">
+            <div class="img-wrapper">
+                <img src="bupf.png" alt="Primary visual record of entity Buptup">
+                <div class="caption">FIG A.1: "Bupf" - Primary Visual Record</div>
+            </div>
+
+            <h2>ENTITY DESCRIPTION</h2>
+            <p>
+                The entity by the name of "Buptup" is a anomaly. Bup displays an ability to distort local video recording equipment. 
+            </p>
+            <p>
+                Physical composition appears. Witnesses report a feeling of intense confusuion when viewing the creature directly. 
+            </p>
+        </section>
+
+        <section class="data-log">
+            <h2>BUPTUP SPOTTINGS</h2>
+            <p>LOG ENTRY: RECOVERY UNKNOWN INDIVIDUAL ON A DISCARDED SD CARD.</p>
+            
+            <div class="img-wrapper">
+                <img src="capturesighting.png" alt="Grainy footage of creature sighting">
+                <div class="caption">EVIDENCE #492: SIGHTINGS CONFIRMED</div>
+            </div>
+
+            <h3>INCIDENT REPORT</h3>
+            <p>
+                Subject was observed near the old <span class="redacted">water treatment facility</span>. Movement is erratic. The camera operator was not found. Only the image "capturesighting.png" remains.
+            </p>
+        </section>
+
+        <footer>
+            SYSTEM TERMINAL 99<br>
+            END OF FILE.<br>
+            DO NOT DISTRIBUTE.
+        </footer>
+    </div>
+
+</body>
+</html>
