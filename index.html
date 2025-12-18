@@ -225,7 +225,7 @@
     <div id="click-counter">Clicks: 0</div>
 
     <script>
-        const pages = ['zombie', 'escape', 'calculator', 'store', 'demo', 'about'];
+        const pages = ['zombie', 'escape', 'calculator', 'store', 'demo', 'about', 'archive'];
 
         // --- Search Bar Suggestions ---
         document.getElementById('search-bar').addEventListener('input', function() {
@@ -255,33 +255,33 @@
         });
 
         function navigateToPage(query) {
-            switch (query) {
-                case 'zombie':
-                    window.location.href = 'zombie.html';
-                    break;
-                case 'escape':
-                    window.location.href = 'escape.html';
-                    break;
-                case 'calculator':
-                    window.location.href = 'calculator.html';
-                    break;
-                case 'store':
-                    window.location.href = 'store.html';
-                    break;
-                case 'demo':
-                    window.location.href = 'game/game.html';
-                    break;
-                case 'about':
-                    window.location.href = 'about.html';
-                    break;
-                default:
-                case 'archive':
-                   window.location.href = 'scary/buparchive.html';
-                    break;
-                default:
-                    alert('Page not found!');
-            }
-        }
+    switch (query) {
+        case 'zombie':
+            window.location.href = 'zombie.html';
+            break;
+        case 'escape':
+            window.location.href = 'escape.html';
+            break;
+        case 'calculator':
+            window.location.href = 'calculator.html';
+            break;
+        case 'store':
+            window.location.href = 'store.html';
+            break;
+        case 'demo':
+            window.location.href = 'game/game.html';
+            break;
+        case 'about':
+            window.location.href = 'about.html';
+            break;
+        case 'archive':
+            window.location.href = 'scary/buparchive.html';
+            break;
+        default:
+            alert('Page not found!');
+    }
+}
+
 
         document.getElementById('searchForm').addEventListener('submit', function(event) {
             event.preventDefault();
@@ -375,6 +375,7 @@
     </script>
 </body>
 </html>
+
 
 
 
